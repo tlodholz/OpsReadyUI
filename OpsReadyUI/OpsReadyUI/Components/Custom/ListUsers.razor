@@ -1,0 +1,193 @@
+﻿@using OpsReady.Models
+@inject HttpClient HttpClient
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+@if (users == null)
+{
+    <p>Loading...</p>
+}
+else if (!users.Any())
+{
+    <p>No user found.</p>
+}
+else
+{
+    <div class="sorting-options">
+        <input type="radio" value="FirstName" @onchange="HandleSortChange" checked="@(SelectedSort == "Username")" /> Username
+        <input type="radio" value="LastName" @onchange="HandleSortChange" checked="@(SelectedSort == "Email")" /> Email
+        <input type="radio" value="Email" @onchange="HandleSortChange" checked="@(SelectedSort == "Role")" /> Role
+        <input type="radio" value="Email" @onchange="HandleSortChange" checked="@(SelectedSort == "BadgeLevel")" /> Badge Level
+        <input type="radio" value="Email" @onchange="HandleSortChange" checked="@(SelectedSort == "CreatedAt")" /> Created At
+    </div>
+    <input type="text" @bind="SearchText" placeholder="Search customers..." />
+    <table class="table">
+        <thead>
+            <tr>
+                <td></td>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Badge Level</th>
+                <th>Created At</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var user in SortedAndFilteredUsers.Skip((CurrentPage - 1) * PageSize).Take(PageSize))
+            {
+                <tr>
+                    <td>
+                        <img src="@user.ImagePath" alt="User image" style="width:50px;height:auto;border-radius:50%;object-fit:cover" />
+                    </td>
+                    <td>@user.Username</td>
+                    <td>@user.Email</td>
+                    <td>@user.Role</td>
+                    <td>@user.BadgeLevel</td>
+                    <td>@user.CreatedAt</td>
+                    <td>
+                        <div class="btn-group">
+                            <EditForm Model="user" FormName="@($"form-list-user-{user.Id}")"
+                                      OnSubmit="@(() => ShowUsers(user.Id))">
+                                <button type="submit" class="btn btn-primary">Profile</button>
+                            </EditForm>
+                            &nbsp;
+                            <EditForm Model="user" FormName="@($"form-edit-user-{user.Id}")"
+                                      OnSubmit="@(() => EditUser(user.Id))">
+                                <button type="submit" class="btn btn-dark">Edit</button>
+                            </EditForm>
+                            &nbsp;
+                            <EditForm Model="user" FormName="@($"form-delete-user-{user.Id}")"
+                                      OnSubmit="@(() => HandleDeleteSubmit(user.Id))">
+                                <button type="submit" class="btn btn-danger">Delete</button>
+                            </EditForm>
+                            &nbsp;
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <div class="pagination-controls">
+        <button @onclick="PreviousPage" disabled="@(CurrentPage == 1)">Previous</button>
+        @for (int i = 1; i <= TotalPages; i++)
+        {
+            var pageNumber = i; // Create a scoped variable to avoid capturing issues
+                                <button @onclick="() => GoToPage(pageNumber)" class="@(CurrentPage == pageNumber ? "active" : "")">@pageNumber</button>
+        }
+        <button @onclick="NextPage" disabled="@(CurrentPage == TotalPages)">Next</button>
+    </div>
+
+}
+
+@code {
+    private List<User> users = new List<User>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Fetch users from the API endpoint https://opsreadyapi.azurewebsites.net/api/Auth/users
+            users = await HttpClient.GetFromJsonAsync<List<User>>("api/Auth/users");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching customers: {ex.Message}");
+        }
+    }
+
+    // PAGINATION AND SORTING
+
+    // sorting
+    private string SelectedSort = "Username";
+
+    // pagination
+    private int CurrentPage { get; set; } = 1;
+    private int PageSize { get; set; } = 10; // Adjust the number of items per page
+    private int TotalPages => (int)Math.Ceiling((double)users.Count / PageSize);
+
+    // search bar
+    private string SearchText { get; set; } = "";
+
+    private IEnumerable<User> SortedAndFilteredUsers => users
+        .OrderBy(c => SelectedSort == "Username" ? c.Username :
+                  SelectedSort == "Email" ? c.Email :
+                  SelectedSort == "Role" ? c.Role :
+                  SelectedSort == "BadgeLevel" ? c.BadgeLevel :
+                  c.Email) // Sort first
+        .Where(c => string.IsNullOrEmpty(SearchText) ||
+               c.Username.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+               c.Email.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+               c.Role.Contains(SearchText, StringComparison.OrdinalIgnoreCase)); // Filter after sorting
+
+    // pagination button events
+    private void HandleSortChange(ChangeEventArgs e)
+    {
+        SelectedSort = e.Value.ToString();
+    }
+
+    private void GoToPage(int page)
+    {
+        CurrentPage = page;
+    }
+
+    private void PreviousPage()
+    {
+        if (CurrentPage > 1) CurrentPage--;
+    }
+
+    private void NextPage()
+    {
+        if (CurrentPage < TotalPages) CurrentPage++;
+    }
+
+    // CRUD OPERATIONS FOR LINE ITEM BUTTONS
+
+    private void ShowUsers(int userId)
+    {
+        Console.WriteLine($"Show details for user with ID: {userId}");
+        // Add logic to navigate to the details page or display a modal
+
+        NavigationManager.NavigateTo($"/user/profile/{userId}");
+    }
+
+    private void EditUser(int userId)
+    {
+        NavigationManager.NavigateTo($"/user/edit/{userId}");
+    }
+
+    private async Task HandleDeleteSubmit(int userId)
+    {
+        await DeleteUser(userId);
+    }
+
+    private async Task DeleteUser(int userId)
+    {
+        try
+        {
+            var response = await HttpClient.DeleteAsync($"api/customers/{userId}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"User with ID {userId} has been deleted successfully.");
+
+                // Remove the User from the list after successful deletion
+                var userToRemove = users.FirstOrDefault(c => c.Id == userId);
+                if (userToRemove != null)
+                {
+                    users.Remove(userToRemove);
+                    Console.WriteLine($"User with ID {userId} has been deleted and removed from the list.");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Failed to delete user with ID {userId}. Status code: {response.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred while deleting the user: {ex.Message}");
+        }
+    }
+}
