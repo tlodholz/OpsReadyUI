@@ -1,0 +1,255 @@
+﻿@using System.Text.Json
+@using OpsReady.Models
+
+@inject HttpClient HttpClient
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<h3>User Profile</h3>
+
+@if (profile == null)
+{
+    <p><em>Loading profile...</em></p>
+}
+else
+{
+    <div class="card userprofile-card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div>
+                <strong>Edit Profile</strong>
+                <div class="text-muted small">Manage user profile details</div>
+            </div>
+            <div>
+                <button class="btn btn-outline-secondary btn-sm" @onclick="@(() => NavigationManager.NavigateTo("/"))">Back</button>
+            </div>
+        </div>
+
+        <EditForm Model="profile" OnValidSubmit="SaveProfile" class="card-body">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            @* Hidden bindings for Id and UserId *@
+            <input type="hidden" @bind="profile.Id" />
+            <input type="hidden" @bind="profile.UserId" />
+
+            <div class="row gx-3">
+                <div class="col-md-6 mb-3">
+                    <label for="firstName">First name</label>
+                    <InputText id="firstName" class="form-control" @bind-Value="profile.FirstName" placeholder="Given name" />
+                    <ValidationMessage For="@(() => profile.FirstName)" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="lastName">Last name</label>
+                    <InputText id="lastName" class="form-control" @bind-Value="profile.LastName" placeholder="Family name" />
+                    <ValidationMessage For="@(() => profile.LastName)" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="preferredName">Preferred name</label>
+                    <InputText id="preferredName" class="form-control" @bind-Value="profile.PreferredName" />
+                    <ValidationMessage For="@(() => profile.PreferredName)" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="badgeNumber">Badge number</label>
+                    <InputText id="badgeNumber" class="form-control" @bind-Value="profile.BadgeNumber" />
+                    <ValidationMessage For="@(() => profile.BadgeNumber)" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="position">Position</label>
+                    <InputText id="position" class="form-control" @bind-Value="profile.Position" />
+                    <ValidationMessage For="@(() => profile.Position)" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="department">Department</label>
+                    <InputText id="department" class="form-control" @bind-Value="profile.Department" />
+                    <ValidationMessage For="@(() => profile.Department)" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="location">Location</label>
+                    <InputText id="location" class="form-control" @bind-Value="profile.Location" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="phone">Phone</label>
+                    <InputText id="phone" class="form-control" @bind-Value="profile.PhoneNumber" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="email">Email</label>
+                    <InputText id="email" class="form-control" @bind-Value="profile.EmailAddress" />
+                    <ValidationMessage For="@(() => profile.EmailAddress)" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="dob">Date of birth</label>
+                    <InputDate id="dob" class="form-control" @bind-Value="profile.DateOfBirth" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="hire">Date of hire</label>
+                    <InputDate id="hire" class="form-control" @bind-Value="profile.DateOfHire" />
+                </div>
+
+                <div class="col-12 mb-3">
+                    <label for="address1">Address 1</label>
+                    <InputText id="address1" class="form-control" @bind-Value="profile.Address1" />
+                </div>
+
+                <div class="col-12 mb-3">
+                    <label for="address2">Address 2</label>
+                    <InputText id="address2" class="form-control" @bind-Value="profile.Address2" />
+                </div>
+
+                <div class="col-md-4 mb-3">
+                    <label for="city">City</label>
+                    <InputText id="city" class="form-control" @bind-Value="profile.City" />
+                </div>
+
+                <div class="col-md-4 mb-3">
+                    <label for="state">State</label>
+                    <InputText id="state" class="form-control" @bind-Value="profile.State" />
+                </div>
+
+                <div class="col-md-4 mb-3">
+                    <label for="zip">Zip</label>
+                    <InputText id="zip" class="form-control" @bind-Value="profile.ZipCode" />
+                </div>
+
+                <div class="col-12 mb-3">
+                    <label for="skills">Skills</label>
+                    <InputText id="skills" class="form-control" @bind-Value="profile.Skills" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="status">Status</label>
+                    <InputText id="status" class="form-control" @bind-Value="profile.Status" />
+                </div>
+
+                <div class="col-md-6 mb-3 form-check align-items-center d-flex">
+                    <InputCheckbox id="activeDuty" class="form-check-input me-2" @bind-Value="profile.IsActiveDuty" />
+                    <label for="activeDuty" class="form-check-label mb-0">Active duty</label>
+                </div>
+
+                <div class="col-12 mb-3">
+                    <label for="bio">Bio</label>
+                    <InputTextArea id="bio" class="form-control" rows="4" @bind-Value="profile.Bio" />
+                </div>
+
+                <div class="col-12 mb-3">
+                    <label for="notes">Notes</label>
+                    <InputTextArea id="notes" class="form-control" rows="3" @bind-Value="profile.Notes" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label>Record Created By</label>
+                    <InputText class="form-control" @bind-Value="profile.RecordCreatedBy" disabled />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label>Record Created Date</label>
+                    <InputDate class="form-control" @bind-Value="profile.RecordCreatedDate" disabled />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label>Record Updated By</label>
+                    <InputText class="form-control" @bind-Value="profile.RecordUpdatedBy" disabled />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label>Record Updated Date</label>
+                    <InputDate class="form-control" @bind-Value="profile.RecordUpdatedDate" disabled />
+                </div>
+            </div>
+        </EditForm>
+
+        <div class="card-footer d-flex justify-content-end gap-2">
+            <button class="btn btn-secondary" @onclick="@(() => NavigationManager.NavigateTo("/"))">Cancel</button>
+            <button class="btn btn-danger" @onclick="DeleteProfile">Delete</button>
+            <button class="btn btn-success" form="none" @onclick="SaveProfile">Save</button>
+        </div>
+    </div>
+}
+@code {
+    [Parameter] public int userId { get; set; }
+    private UserProfile? profile;
+
+    protected override async Task OnInitializedAsync()
+    {
+        UserProfile? serverProfile = null;
+
+        try
+        {
+            serverProfile = await HttpClient.GetFromJsonAsync<UserProfile>($"api/userprofile/{userId}");
+        }
+        catch (HttpRequestException)
+        {
+            serverProfile = null;
+        }
+
+        if (!IsServerProfileValid(serverProfile))
+        {
+            var newProfile = new UserProfile
+            {
+                UserId = userId,
+                RecordCreatedBy = "system",
+                RecordCreatedDate = DateTime.UtcNow,
+                RecordUpdatedBy = "system",
+                RecordUpdatedDate = DateTime.UtcNow
+            };
+
+            var response = await HttpClient.PostAsJsonAsync("api/userprofile", newProfile);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var created = await response.Content.ReadFromJsonAsync<UserProfile>();
+                profile = created ?? newProfile;
+            }
+            else
+            {
+                profile = newProfile;
+            }
+        }
+        else
+        {
+            profile = serverProfile;
+        }
+    }
+
+    private static bool IsServerProfileValid(UserProfile? p)
+    {
+        return p is not null && p.UserId != 0;
+    }
+
+    private async Task SaveProfile()
+    {
+        if (profile is null)
+            return;
+
+        profile.RecordUpdatedDate = DateTime.UtcNow;
+
+        if (profile.Id == 0)
+        {
+            var response = await HttpClient.PostAsJsonAsync("api/userprofile", profile);
+            var created = await response.Content.ReadFromJsonAsync<UserProfile>();
+            profile = created ?? profile;
+        }
+        else
+        {
+            await HttpClient.PutAsJsonAsync($"api/userprofile/{profile.Id}", profile);
+        }
+    }
+
+    private async Task DeleteProfile()
+    {
+        if (profile!.Id != 0)
+        {
+            await HttpClient.DeleteAsync($"api/userprofile/{profile.Id}");
+            profile = null;
+        }
+    }
+}

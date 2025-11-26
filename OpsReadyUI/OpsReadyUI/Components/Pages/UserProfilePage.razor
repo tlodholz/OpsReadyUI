@@ -11,13 +11,9 @@ else if (!string.IsNullOrEmpty(errorMessage))
 {
     <p class="text-danger">@errorMessage</p>
 }
-else if (userExists)
-{
-    <UserProfileView UserId="@userId"></UserProfileView>
-}
 else
 {
-    <UserProfileAdd UserId="@userId"></UserProfileAdd>
+    <UserProfileComponent UserId="@userId"></UserProfileComponent>
 }
 
 @code {
