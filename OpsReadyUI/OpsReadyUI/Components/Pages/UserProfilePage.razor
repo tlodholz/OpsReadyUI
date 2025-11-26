@@ -1,0 +1,74 @@
+﻿@page "/user/profile/{userId:int}"
+@using OpsReadyUI.Components.Custom
+@inject NavigationManager NavigationManager
+@inject HttpClient Http
+
+@if (isLoading)
+{
+    <p>Loading...</p>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <p class="text-danger">@errorMessage</p>
+}
+else if (userExists)
+{
+    <UserProfileView UserId="@userId"></UserProfileView>
+}
+else
+{
+    <UserProfileAdd UserId="@userId"></UserProfileAdd>
+}
+
+@code {
+    [Parameter]
+    public int userId { get; set; }
+
+    private bool isLoading = true;
+    private bool userExists;
+    private string? errorMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        userExists = false;
+
+        if (userId <= 0)
+        {
+            // invalid id — treat as "add new"
+            isLoading = false;
+            return;
+        }
+
+        try
+        {
+            // Change this route to match your backend if necessary
+            var response = await Http.GetAsync($"/api/userprofile/{userId}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                // 200 OK (or similar) => user exists
+                userExists = true;
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                // 404 => user does not exist
+                userExists = false;
+            }
+            else
+            {
+                // other status codes surface an error
+                errorMessage = $"Server returned {(int)response.StatusCode} {response.ReasonPhrase}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

@@ -20,7 +20,7 @@ else
         <input type="radio" value="Email" @onchange="HandleSortChange" checked="@(SelectedSort == "BadgeLevel")" /> Badge Level
         <input type="radio" value="Email" @onchange="HandleSortChange" checked="@(SelectedSort == "CreatedAt")" /> Created At
     </div>
-    <input type="text" @bind="SearchText" placeholder="Search customers..." />
+    <input type="text" @bind="SearchText" placeholder="Search users..." />
     <table class="table">
         <thead>
             <tr>
@@ -48,7 +48,7 @@ else
                     <td>
                         <div class="btn-group">
                             <EditForm Model="user" FormName="@($"form-list-user-{user.Id}")"
-                                      OnSubmit="@(() => ShowUsers(user.Id))">
+                                      OnSubmit="@(() => ShowUserProfile(user.Id))">
                                 <button type="submit" class="btn btn-primary">Profile</button>
                             </EditForm>
                             &nbsp;
@@ -144,7 +144,7 @@ else
 
     // CRUD OPERATIONS FOR LINE ITEM BUTTONS
 
-    private void ShowUsers(int userId)
+    private void ShowUserProfile(int userId)
     {
         Console.WriteLine($"Show details for user with ID: {userId}");
         // Add logic to navigate to the details page or display a modal

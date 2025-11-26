@@ -6,6 +6,7 @@ namespace OpsReady.Models
     [Table("OpsReady_UserProfile")]
     public class UserProfile
     {
+        public int Id { get; set; }
         public int UserId { get; set; }
         public string FirstName { get; set; } = string.Empty;
         public string LastName { get; set; } = string.Empty;
@@ -22,12 +23,9 @@ namespace OpsReady.Models
         public string Skills { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty; //Active, Suspended, Retired, etc.
         public string Rank { get; set; } = string.Empty;
-        public string Bio { get; set; }
-        public string AvatarUrl { get; set; }
-        public string Email { get; set; }
-        public string Phone { get; set; }
+        public string Bio { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
-        public string EmailAddress { get; set; }= string.Empty;
+        public string EmailAddress { get; set; } = string.Empty;
         public DateTime DateOfBirth { get; set; }
         public DateTime DateOfHire { get; set; }
         public string Gender { get; set; } = string.Empty;
@@ -39,11 +37,11 @@ namespace OpsReady.Models
         public string ExemptionsGranted { get; set; } = string.Empty;
         public string DisciplinaryActions { get; set; } = string.Empty;
         public string UseOfForceClearance { get; set; } = string.Empty;
-        public string LanguageFluency { get; set; }
-        public string SpecialClearances { get; set; }
+        public string LanguageFluency { get; set; } = string.Empty;
+        public string SpecialClearances { get; set; } = string.Empty;
         public bool IsActiveDuty { get; set; }
-        public string CommandingOfficerBadgeNumber { get; set; }
-        public string Notes { get; set; }
+        public string CommandingOfficerBadgeNumber { get; set; } = string.Empty;
+        public string Notes { get; set; } = string.Empty;
         public string RecordCreatedBy { get; set; }
         public DateTime RecordCreatedDate { get; set; }
         public string RecordUpdatedBy { get; set; }
