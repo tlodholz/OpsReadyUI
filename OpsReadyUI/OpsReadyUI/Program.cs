@@ -8,6 +8,7 @@ builder.Services.AddRazorComponents()
 
 // TESTING: Registers my api so it can be called.
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("https://opsreadyapi.azurewebsites.net/") });
+//builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("https://localhost:7097/") });
 
 var app = builder.Build();
 

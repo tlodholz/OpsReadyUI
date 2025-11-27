@@ -29,7 +29,7 @@ else
             <ValidationSummary />
 
             @* Hidden bindings for Id and UserId *@
-            <input type="hidden" @bind="profile.Id" />
+            <input type="" @bind="profile.Id" />
             <input type="hidden" @bind="profile.UserId" />
 
             <div class="row gx-3">
@@ -230,17 +230,61 @@ else
         if (profile is null)
             return;
 
+        // update audit timestamp and ensure non-null audit strings
         profile.RecordUpdatedDate = DateTime.UtcNow;
+        profile.RecordUpdatedBy = string.IsNullOrWhiteSpace(profile.RecordUpdatedBy) ? "system" : profile.RecordUpdatedBy;
 
-        if (profile.Id == 0)
+        try
         {
-            var response = await HttpClient.PostAsJsonAsync("api/userprofile", profile);
-            var created = await response.Content.ReadFromJsonAsync<UserProfile>();
-            profile = created ?? profile;
+            if (profile.Id == 0)
+            {
+                // create new record
+                var postResponse = await HttpClient.PostAsJsonAsync("api/userprofile", profile);
+
+                if (postResponse.IsSuccessStatusCode)
+                {
+                    var created = await postResponse.Content.ReadFromJsonAsync<UserProfile>();
+                    if (created is not null)
+                    {
+                        profile = created;
+                    }
+                }
+                else
+                {
+                    var err = await postResponse.Content.ReadAsStringAsync();
+                    throw new HttpRequestException($"POST api/userprofile failed: {(int)postResponse.StatusCode} {postResponse.ReasonPhrase} - {err}");
+                }
+            }
+            else
+            {
+                // update existing record
+                var putResponse = await HttpClient.PutAsJsonAsync($"api/userprofile", profile);
+
+                if (putResponse.IsSuccessStatusCode)
+                {
+                    // optionally update local object if server returns the updated entity
+                    if (putResponse.Content != null && putResponse.Content.Headers.ContentLength > 0)
+                    {
+                        var updated = await putResponse.Content.ReadFromJsonAsync<UserProfile>();
+                        if (updated is not null)
+                        {
+                            profile = updated;
+                        }
+                    }
+                }
+                else
+                {
+                    var err = await putResponse.Content.ReadAsStringAsync();
+                    throw new HttpRequestException($"PUT api/userprofile failed: {(int)putResponse.StatusCode} {putResponse.ReasonPhrase} - {err}");
+                }
+            }
         }
-        else
+        catch (Exception ex)
         {
-            await HttpClient.PutAsJsonAsync($"api/userprofile/{profile.Id}", profile);
+            // Minimal error handling: write to console during development.
+            // Replace with a user-visible notification/log in production.
+            Console.Error.WriteLine(ex);
+            throw;
         }
     }
 
