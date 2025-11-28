@@ -3,7 +3,6 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace OpsReady.Models
 {
-
     [Table("OpsReady_UserProfile")]
     public class UserProfile
     {
