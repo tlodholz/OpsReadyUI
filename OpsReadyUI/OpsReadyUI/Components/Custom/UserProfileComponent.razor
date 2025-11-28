@@ -29,8 +29,8 @@ else
             <ValidationSummary />
 
             @* Hidden bindings for Id and UserId *@
-            <input type="" @bind="profile.Id" />
-            <input type="" @bind="profile.UserId" />
+            <input type="hidden" @bind="profile.Id" />
+            <input type="hidden" @bind="profile.UserId" />
 
             <div class="row gx-3">
                 <div class="col-md-6 mb-3">
@@ -64,6 +64,12 @@ else
                 </div>
 
                 <div class="col-md-6 mb-3">
+                    <label for="rank">Rank</label>
+                    <InputText id="rank" class="form-control" @bind-Value="profile.Rank" />
+                    <ValidationMessage For="@(() => profile.Rank)" />
+                </div>
+
+                <div class="col-md-6 mb-3">
                     <label for="department">Department</label>
                     <InputText id="department" class="form-control" @bind-Value="profile.Department" />
                     <ValidationMessage For="@(() => profile.Department)" />
@@ -72,6 +78,12 @@ else
                 <div class="col-md-6 mb-3">
                     <label for="location">Location</label>
                     <InputText id="location" class="form-control" @bind-Value="profile.Location" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="stationLocation">Station location</label>
+                    <InputText id="stationLocation" class="form-control" @bind-Value="profile.StationLocation" />
+                    <ValidationMessage For="@(() => profile.StationLocation)" />
                 </div>
 
                 <div class="col-md-6 mb-3">
@@ -93,6 +105,30 @@ else
                 <div class="col-md-6 mb-3">
                     <label for="hire">Date of hire</label>
                     <InputDate id="hire" class="form-control" @bind-Value="profile.DateOfHire" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="gender">Gender</label>
+                    <InputText id="gender" class="form-control" @bind-Value="profile.Gender" />
+                    <ValidationMessage For="@(() => profile.Gender)" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="ethnicity">Ethnicity</label>
+                    <InputText id="ethnicity" class="form-control" @bind-Value="profile.Ethnicity" />
+                    <ValidationMessage For="@(() => profile.Ethnicity)" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="shiftSchedule">Shift schedule</label>
+                    <InputText id="shiftSchedule" class="form-control" @bind-Value="profile.ShiftSchedule" />
+                    <ValidationMessage For="@(() => profile.ShiftSchedule)" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="supervisorBadge">Supervisor badge</label>
+                    <InputText id="supervisorBadge" class="form-control" @bind-Value="profile.SupervisorBadgeNumber" />
+                    <ValidationMessage For="@(() => profile.SupervisorBadgeNumber)" />
                 </div>
 
                 <div class="col-12 mb-3">
@@ -138,6 +174,42 @@ else
                 <div class="col-12 mb-3">
                     <label for="bio">Bio</label>
                     <InputTextArea id="bio" class="form-control" rows="4" @bind-Value="profile.Bio" />
+                </div>
+
+                <div class="col-12 mb-3">
+                    <label for="legalRestrictions">Legal restrictions</label>
+                    <InputTextArea id="legalRestrictions" class="form-control" rows="3" @bind-Value="profile.LegalRestrictions" />
+                </div>
+
+                <div class="col-12 mb-3">
+                    <label for="exemptionsGranted">Exemptions granted</label>
+                    <InputTextArea id="exemptionsGranted" class="form-control" rows="3" @bind-Value="profile.ExemptionsGranted" />
+                </div>
+
+                <div class="col-12 mb-3">
+                    <label for="disciplinaryActions">Disciplinary actions</label>
+                    <InputTextArea id="disciplinaryActions" class="form-control" rows="3" @bind-Value="profile.DisciplinaryActions" />
+                </div>
+
+                <div class="col-12 mb-3">
+                    <label for="useOfForceClearance">Use of force clearance</label>
+                    <InputTextArea id="useOfForceClearance" class="form-control" rows="2" @bind-Value="profile.UseOfForceClearance" />
+                </div>
+
+                <div class="col-12 mb-3">
+                    <label for="languageFluency">Language fluency</label>
+                    <InputText id="languageFluency" class="form-control" @bind-Value="profile.LanguageFluency" />
+                </div>
+
+                <div class="col-12 mb-3">
+                    <label for="specialClearances">Special clearances</label>
+                    <InputText id="specialClearances" class="form-control" @bind-Value="profile.SpecialClearances" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="commandingOfficer">Commanding officer badge</label>
+                    <InputText id="commandingOfficer" class="form-control" @bind-Value="profile.CommandingOfficerBadgeNumber" />
+                    <ValidationMessage For="@(() => profile.CommandingOfficerBadgeNumber)" />
                 </div>
 
                 <div class="col-12 mb-3">
