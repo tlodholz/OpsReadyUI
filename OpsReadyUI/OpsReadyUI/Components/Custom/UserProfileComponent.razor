@@ -30,7 +30,7 @@ else
 
             @* Hidden bindings for Id and UserId *@
             <input type="" @bind="profile.Id" />
-            <input type="hidden" @bind="profile.UserId" />
+            <input type="" @bind="profile.UserId" />
 
             <div class="row gx-3">
                 <div class="col-md-6 mb-3">
@@ -164,19 +164,34 @@ else
                     <label>Record Updated Date</label>
                     <InputDate class="form-control" @bind-Value="profile.RecordUpdatedDate" disabled />
                 </div>
+            </div>  
+
+            <div class="card-footer d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-secondary" @onclick="@(() => NavigationManager.NavigateTo("/"))">Cancel</button>
+                <button type="button" class="btn btn-danger" @onclick="DeleteProfile">Delete</button>
+                @* submit will trigger OnValidSubmit -> SaveProfile which will POST when profile.Id == 0, otherwise PUT *@
+                <button type="submit" class="btn btn-success">Save</button>
             </div>
         </EditForm>
 
-        <div class="card-footer d-flex justify-content-end gap-2">
-            <button class="btn btn-secondary" @onclick="@(() => NavigationManager.NavigateTo("/"))">Cancel</button>
-            <button class="btn btn-danger" @onclick="DeleteProfile">Delete</button>
-            <button class="btn btn-success" form="none" @onclick="SaveProfile">Save</button>
-        </div>
+        @* Status alert below the action buttons *@
+        @if (!string.IsNullOrWhiteSpace(statusMessage))
+        {
+            <div class="@statusAlertClass mt-3 mx-3 p-3" role="alert">
+                <div>@(statusMessage)</div>
+                <button type="button" class="btn-close float-end" aria-label="Close" @onclick="ClearStatus"></button>
+            </div>
+        }
     </div>
 }
 @code {
     [Parameter] public int userId { get; set; }
     private UserProfile? profile;
+
+    // status message shown to user after operations
+    private string? statusMessage;
+    private string statusAlertClass = "alert alert-success";
+    private System.Threading.CancellationTokenSource? statusCts;
 
     protected override async Task OnInitializedAsync()
     {
@@ -193,26 +208,17 @@ else
 
         if (!IsServerProfileValid(serverProfile))
         {
-            var newProfile = new UserProfile
+            // Do not create or POST a new record on initialization.
+            // Prepare a local empty profile -- save will POST if user submits.
+            profile = new UserProfile
             {
+                Id = 0,
                 UserId = userId,
                 RecordCreatedBy = "system",
                 RecordCreatedDate = DateTime.UtcNow,
                 RecordUpdatedBy = "system",
                 RecordUpdatedDate = DateTime.UtcNow
             };
-
-            var response = await HttpClient.PostAsJsonAsync("api/userprofile", newProfile);
-
-            if (response.IsSuccessStatusCode)
-            {
-                var created = await response.Content.ReadFromJsonAsync<UserProfile>();
-                profile = created ?? newProfile;
-            }
-            else
-            {
-                profile = newProfile;
-            }
         }
         else
         {
@@ -238,7 +244,7 @@ else
         {
             if (profile.Id == 0)
             {
-                // create new record
+                // create new record (POST) only when user presses Save and Id == 0
                 var postResponse = await HttpClient.PostAsJsonAsync("api/userprofile", profile);
 
                 if (postResponse.IsSuccessStatusCode)
@@ -247,17 +253,19 @@ else
                     if (created is not null)
                     {
                         profile = created;
+                        ShowStatus("Profile created successfully.", "alert alert-success");
                     }
                 }
                 else
                 {
                     var err = await postResponse.Content.ReadAsStringAsync();
+                    ShowStatus($"POST failed: {(int)postResponse.StatusCode} {postResponse.ReasonPhrase} - {err}", "alert alert-danger");
                     throw new HttpRequestException($"POST api/userprofile failed: {(int)postResponse.StatusCode} {postResponse.ReasonPhrase} - {err}");
                 }
             }
             else
             {
-                // update existing record
+                // update existing record (PUT)
                 var putResponse = await HttpClient.PutAsJsonAsync($"api/userprofile", profile);
 
                 if (putResponse.IsSuccessStatusCode)
@@ -271,18 +279,21 @@ else
                             profile = updated;
                         }
                     }
+
+                    ShowStatus("Profile updated successfully.", "alert alert-success");
                 }
                 else
                 {
                     var err = await putResponse.Content.ReadAsStringAsync();
+                    ShowStatus($"PUT failed: {(int)putResponse.StatusCode} {putResponse.ReasonPhrase} - {err}", "alert alert-danger");
                     throw new HttpRequestException($"PUT api/userprofile failed: {(int)putResponse.StatusCode} {putResponse.ReasonPhrase} - {err}");
                 }
             }
         }
         catch (Exception ex)
         {
-            // Minimal error handling: write to console during development.
-            // Replace with a user-visible notification/log in production.
+            // Minimal error handling: show an error to the user and write to console during development.
+            ShowStatus($"Error: {ex.Message}", "alert alert-danger");
             Console.Error.WriteLine(ex);
             throw;
         }
@@ -295,5 +306,36 @@ else
             await HttpClient.DeleteAsync($"api/userprofile/{profile.Id}");
             profile = null;
         }
+    }
+
+    private void ShowStatus(string message, string alertClass = "alert alert-success", int autoHideMs = 4000)
+    {
+        statusCts?.Cancel();
+        statusMessage = message;
+        statusAlertClass = alertClass;
+        StateHasChanged();
+
+        if (autoHideMs > 0)
+        {
+            var cts = new System.Threading.CancellationTokenSource();
+            statusCts = cts;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(autoHideMs, cts.Token);
+                    statusMessage = null;
+                    await InvokeAsync(StateHasChanged);
+                }
+                catch (TaskCanceledException) { }
+            });
+        }
+    }
+
+    private void ClearStatus()
+    {
+        statusCts?.Cancel();
+        statusMessage = null;
+        StateHasChanged();
     }
 }
