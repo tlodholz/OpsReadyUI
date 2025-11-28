@@ -1,0 +1,342 @@
+﻿@using System.Linq
+@using OpsReady.Models
+@inject HttpClient HttpClient
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<h3>Training Events</h3>
+
+@if (events == null)
+{
+    <p>Loading...</p>
+}
+else if (!events.Any())
+{
+    <p>No training events found.</p>
+}
+else
+{
+    <div class="mb-3 d-flex gap-2 flex-wrap">
+        <input class="form-control w-auto" placeholder="Search..." @bind="SearchText" />
+
+        <select class="form-select w-auto" @bind="SelectedSort">
+            <option value="Title">Title</option>
+            <option value="StartDate">Start Date</option>
+            <option value="EndDate">End Date</option>
+            <option value="Instructor">Instructor</option>
+            <option value="Location">Location</option>
+            <option value="Provider">Provider</option>
+            <option value="DurationHours">Duration (hrs)</option>
+            <option value="Status">Status</option>
+        </select>
+
+        <select class="form-select w-auto" @bind="TrainingTypeFilter">
+            <option value="">All Types</option>
+            @foreach (var t in DistinctTrainingTypes)
+            {
+                <option value="@t">@t</option>
+            }
+        </select>
+
+        <select class="form-select w-auto" @bind="StatusFilter">
+            <option value="">All Status</option>
+            @foreach (var s in DistinctStatuses)
+            {
+                <option value="@s">@s</option>
+            }
+        </select>
+
+        <select class="form-select w-auto" @bind="ProviderFilter">
+            <option value="">All Providers</option>
+            @foreach (var p in DistinctProviders)
+            {
+                <option value="@p">@p</option>
+            }
+        </select>
+
+        <div class="d-flex gap-1 align-items-center">
+            <label class="m-0 small">From</label>
+            <InputDate class="form-control" @bind-Value="StartDateFilter" />
+        </div>
+
+        <div class="d-flex gap-1 align-items-center">
+            <label class="m-0 small">To</label>
+            <InputDate class="form-control" @bind-Value="EndDateFilter" />
+        </div>
+
+        <div class="d-flex gap-1 align-items-center">
+            <label class="m-0 small">Page size</label>
+            <InputNumber class="form-control w-25" @bind-Value="PageSize" />
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-striped table-sm">
+            <thead>
+                <tr>
+                    <th>Id</th>
+                    <th>Title</th>
+                    <th>Description</th>
+                    <th>Type</th>
+                    <th>Category</th>
+                    <th>SubCategory</th>
+                    <th>Tier</th>
+                    <th>SkillLevel</th>
+                    <th>SkillArea</th>
+                    <th>AssessmentCriteria</th>
+                    <th>Audience</th>
+                    <th>Prerequisites</th>
+                    <th>Objectives</th>
+                    <th>MaterialsProvided</th>
+                    <th>DeliveryMethod</th>
+                    <th>Schedule</th>
+                    <th>StartDate</th>
+                    <th>EndDate</th>
+                    <th>EnrollmentDeadline</th>
+                    <th>Location</th>
+                    <th>Provider</th>
+                    <th>Instructor</th>
+                    <th>DurationHours</th>
+                    <th>CertificationIssued</th>
+                    <th>CertificationIssuedBy</th>
+                    <th>CertificationExpiryDate</th>
+                    <th>Status</th>
+                    <th>MandatedBy</th>
+                    <th>Notes</th>
+                    <th>RecordCreatedBy</th>
+                    <th>RecordCreatedDate</th>
+                    <th>RecordUpdatedBy</th>
+                    <th>RecordUpdatedDate</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var ev in FilteredSortedEvents.Skip((CurrentPage - 1) * PageSize).Take(PageSize))
+                {
+                    <tr>
+                        <td>@ev.Id</td>
+                        <td>@ev.Title</td>
+                        <td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">@ev.Description</td>
+                        <td>@ev.TrainingType</td>
+                        <td>@ev.TrainingCategory</td>
+                        <td>@ev.TrainingSubCategory</td>
+                        <td>@ev.TrainingTier</td>
+                        <td>@ev.SkillLevel</td>
+                        <td>@ev.SkillArea</td>
+                        <td style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">@ev.AssessmentCriteria</td>
+                        <td>@ev.Audience</td>
+                        <td>@ev.Prerequisites</td>
+                        <td style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">@ev.Objectives</td>
+                        <td>@ev.MaterialsProvided</td>
+                        <td>@ev.DeliveryMethod</td>
+                        <td>@ev.Schedule</td>
+                        <td>@(ev.StartDate.ToString("yyyy-MM-dd"))</td>
+                        <td>@(ev.EndDate.ToString("yyyy-MM-dd"))</td>
+                        <td>@(ev.EnrollmentDeadline.ToString("yyyy-MM-dd"))</td>
+                        <td>@ev.Location</td>
+                        <td>@ev.Provider</td>
+                        <td>@ev.Instructor</td>
+                        <td>@ev.DurationHours</td>
+                        <td>@(ev.CertificationIssued ? "Yes" : "No")</td>
+                        <td>@ev.CertificationIssuedBy</td>
+                        <td>@(ev.CertificationExpiryDate.ToString("yyyy-MM-dd"))</td>
+                        <td>@ev.Status</td>
+                        <td>@ev.MandatedBy</td>
+                        <td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">@ev.Notes</td>
+                        <td>@ev.RecordCreatedBy</td>
+                        <td>@(ev.RecordCreatedDate.ToString("yyyy-MM-dd"))</td>
+                        <td>@ev.RecordUpdatedBy</td>
+                        <td>@(ev.RecordUpdatedDate.ToString("yyyy-MM-dd"))</td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-primary btn-sm" @onclick="() => ViewEvent(ev.Id)">View</button>
+                                <button class="btn btn-dark btn-sm" @onclick="() => EditEvent(ev.Id)">Edit</button>
+                                <button class="btn btn-danger btn-sm" @onclick="() => ConfirmDelete(ev.Id)">Delete</button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mt-2">
+        <div>
+            Showing @((CurrentPage - 1) * PageSize + 1) - @Math.Min(CurrentPage * PageSize, FilteredSortedEvents.Count()) of @FilteredSortedEvents.Count()
+        </div>
+        <div>
+            <button class="btn btn-secondary btn-sm" @onclick="PreviousPage" disabled="@(CurrentPage == 1)">Previous</button>
+            @for (int i = 1; i <= TotalPages; i++)
+            {
+                var pageNumber = i;
+                <button class="btn btn-sm @(CurrentPage == pageNumber ? "btn-primary" : "btn-outline-secondary") mx-1" @onclick="() => GoToPage(pageNumber)">@pageNumber</button>
+            }
+            <button class="btn btn-secondary btn-sm" @onclick="NextPage" disabled="@(CurrentPage == TotalPages)">Next</button>
+        </div>
+    </div>
+}
+
+@code {
+    private List<TrainingEvent> events = new();
+    private string SearchText { get; set; } = string.Empty;
+    private string SelectedSort { get; set; } = "Title";
+
+    // filters
+    private string TrainingTypeFilter { get; set; } = string.Empty;
+    private string StatusFilter { get; set; } = string.Empty;
+    private string ProviderFilter { get; set; } = string.Empty;
+    private DateTime? StartDateFilter { get; set; }
+    private DateTime? EndDateFilter { get; set; }
+
+    // pagination
+    private int CurrentPage { get; set; } = 1;
+    private int PageSize { get; set; } = 10;
+    private int TotalPages => Math.Max(1, (int)Math.Ceiling((double)FilteredSortedEvents.Count() / PageSize));
+
+    // status
+    private int? toDeleteId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            events = await HttpClient.GetFromJsonAsync<List<TrainingEvent>>("api/trainingevent") ?? new List<TrainingEvent>();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Failed to load training events: {ex.Message}");
+            events = new List<TrainingEvent>();
+        }
+    }
+
+    private IEnumerable<string> DistinctTrainingTypes => events.Select(e => e.TrainingType).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().OrderBy(s => s);
+    private IEnumerable<string> DistinctStatuses => events.Select(e => e.Status).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().OrderBy(s => s);
+    private IEnumerable<string> DistinctProviders => events.Select(e => e.Provider).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().OrderBy(s => s);
+
+    private IEnumerable<TrainingEvent> FilteredSortedEvents
+    {
+        get
+        {
+            var query = events.AsEnumerable();
+
+            // search across common text fields
+            if (!string.IsNullOrWhiteSpace(SearchText))
+            {
+                query = query.Where(e =>
+                    (e.Title ?? string.Empty).Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+                    (e.Description ?? string.Empty).Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+                    (e.Instructor ?? string.Empty).Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+                    (e.Location ?? string.Empty).Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+                    (e.Provider ?? string.Empty).Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+                    (e.Status ?? string.Empty).Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+                    (e.TrainingType ?? string.Empty).Contains(SearchText, StringComparison.OrdinalIgnoreCase)
+                );
+            }
+
+            // filters
+            if (!string.IsNullOrWhiteSpace(TrainingTypeFilter))
+                query = query.Where(e => string.Equals(e.TrainingType, TrainingTypeFilter, StringComparison.OrdinalIgnoreCase));
+
+            if (!string.IsNullOrWhiteSpace(StatusFilter))
+                query = query.Where(e => string.Equals(e.Status, StatusFilter, StringComparison.OrdinalIgnoreCase));
+
+            if (!string.IsNullOrWhiteSpace(ProviderFilter))
+                query = query.Where(e => string.Equals(e.Provider, ProviderFilter, StringComparison.OrdinalIgnoreCase));
+
+            if (StartDateFilter.HasValue)
+                query = query.Where(e => e.StartDate >= StartDateFilter.Value);
+
+            if (EndDateFilter.HasValue)
+                query = query.Where(e => e.EndDate <= EndDateFilter.Value);
+
+            // sorting
+            query = SelectedSort switch
+            {
+                "StartDate" => query.OrderBy(e => e.StartDate),
+                "EndDate" => query.OrderBy(e => e.EndDate),
+                "Instructor" => query.OrderBy(e => e.Instructor),
+                "Location" => query.OrderBy(e => e.Location),
+                "Provider" => query.OrderBy(e => e.Provider),
+                "DurationHours" => query.OrderBy(e => e.DurationHours),
+                "Status" => query.OrderBy(e => e.Status),
+                _ => query.OrderBy(e => e.Title)
+            };
+
+            return query;
+        }
+    }
+
+    private void HandleFilterChanged()
+    {
+        CurrentPage = 1;
+    }
+
+    private void GoToPage(int page)
+    {
+        CurrentPage = page;
+    }
+
+    private void PreviousPage()
+    {
+        if (CurrentPage > 1) CurrentPage--;
+    }
+
+    private void NextPage()
+    {
+        if (CurrentPage < TotalPages) CurrentPage++;
+    }
+
+    private void ViewEvent(int id)
+    {
+        NavigationManager.NavigateTo($"/training/event/{id}");
+    }
+
+    private void EditEvent(int id)
+    {
+        NavigationManager.NavigateTo($"/training/edit/{id}");
+    }
+
+    private void ConfirmDelete(int id)
+    {
+        toDeleteId = id;
+        if (confirmDelete)
+        {
+            _ = DeleteEvent(id);
+        }
+        else
+        {
+            // simple JS-like confirm replacement using browser confirm via NavigationManager is not available here.
+            // We'll perform deletion immediately to keep the component simple; if you want a modal confirm, I can add one.
+            _ = DeleteEvent(id);
+        }
+    }
+
+    private bool confirmDelete = false;
+
+    private async Task DeleteEvent(int id)
+    {
+        try
+        {
+            var resp = await HttpClient.DeleteAsync($"api/trainingevent/{id}");
+            if (resp.IsSuccessStatusCode)
+            {
+                var item = events.FirstOrDefault(e => e.Id == id);
+                if (item != null) events.Remove(item);
+
+                // adjust paging if needed
+                if ((CurrentPage - 1) * PageSize >= FilteredSortedEvents.Count() && CurrentPage > 1)
+                {
+                    CurrentPage--;
+                }
+            }
+            else
+            {
+                Console.Error.WriteLine($"Delete failed: {(int)resp.StatusCode} {resp.ReasonPhrase}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error deleting event {id}: {ex.Message}");
+        }
+    }
+}

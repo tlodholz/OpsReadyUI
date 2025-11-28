@@ -1,0 +1,391 @@
+﻿@using System.Text.Json
+@using OpsReady.Models
+
+@inject HttpClient HttpClient
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+@if (trainingEvent == null)
+{
+    <p><em>Loading event...</em></p>
+}
+else
+{
+    <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div>
+                <strong>@(trainingEvent.Id == 0 ? "Create Training Event" : "Edit Training Event")</strong>
+                <div class="text-muted small">Manage training event details</div>
+            </div>
+            <div>
+                <button class="btn btn-outline-secondary btn-sm" @onclick="@(() => NavigationManager.NavigateTo("/"))">Back</button>
+            </div>
+        </div>
+
+        <EditForm Model="trainingEvent" OnValidSubmit="SaveEvent" class="card-body">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <input type="hidden" @bind="trainingEvent.Id" />
+
+            <div class="row gx-3">
+                <div class="col-md-6 mb-3">
+                    <label for="title">Title</label>
+                    <InputText id="title" class="form-control" @bind-Value="trainingEvent.Title" />
+                    <ValidationMessage For="@(() => trainingEvent.Title)" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="type">Type</label>
+                    <InputText id="type" class="form-control" @bind-Value="trainingEvent.TrainingType" />
+                </div>
+
+                <div class="col-md-4 mb-3">
+                    <label for="category">Category</label>
+                    <InputText id="category" class="form-control" @bind-Value="trainingEvent.TrainingCategory" />
+                </div>
+
+                <div class="col-md-4 mb-3">
+                    <label for="subCategory">Sub-category</label>
+                    <InputText id="subCategory" class="form-control" @bind-Value="trainingEvent.TrainingSubCategory" />
+                </div>
+
+                <div class="col-md-4 mb-3">
+                    <label for="tier">Tier</label>
+                    <InputText id="tier" class="form-control" @bind-Value="trainingEvent.TrainingTier" />
+                </div>
+
+                <div class="col-md-4 mb-3">
+                    <label for="skillLevel">Skill level</label>
+                    <InputText id="skillLevel" class="form-control" @bind-Value="trainingEvent.SkillLevel" />
+                </div>
+
+                <div class="col-md-4 mb-3">
+                    <label for="skillArea">Skill area</label>
+                    <InputText id="skillArea" class="form-control" @bind-Value="trainingEvent.SkillArea" />
+                </div>
+
+                <div class="col-md-4 mb-3">
+                    <label for="assessment">Assessment criteria</label>
+                    <InputText id="assessment" class="form-control" @bind-Value="trainingEvent.AssessmentCriteria" />
+                </div>
+
+                <div class="col-12 mb-3">
+                    <label for="description">Description</label>
+                    <InputTextArea id="description" class="form-control" rows="4" @bind-Value="trainingEvent.Description" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="audience">Audience</label>
+                    <InputText id="audience" class="form-control" @bind-Value="trainingEvent.Audience" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="prereqs">Prerequisites</label>
+                    <InputText id="prereqs" class="form-control" @bind-Value="trainingEvent.Prerequisites" />
+                </div>
+
+                <div class="col-12 mb-3">
+                    <label for="objectives">Objectives</label>
+                    <InputTextArea id="objectives" class="form-control" rows="3" @bind-Value="trainingEvent.Objectives" />
+                </div>
+
+                <div class="col-12 mb-3">
+                    <label for="materials">Materials provided</label>
+                    <InputTextArea id="materials" class="form-control" rows="2" @bind-Value="trainingEvent.MaterialsProvided" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="delivery">Delivery method</label>
+                    <InputText id="delivery" class="form-control" @bind-Value="trainingEvent.DeliveryMethod" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="schedule">Schedule</label>
+                    <InputText id="schedule" class="form-control" @bind-Value="trainingEvent.Schedule" />
+                </div>
+
+                <div class="col-md-4 mb-3">
+                    <label for="startDate">Start date</label>
+                    <InputDate id="startDate" class="form-control" @bind-Value="trainingEvent.StartDate" />
+                </div>
+
+                <div class="col-md-4 mb-3">
+                    <label for="endDate">End date</label>
+                    <InputDate id="endDate" class="form-control" @bind-Value="trainingEvent.EndDate" />
+                </div>
+
+                <div class="col-md-4 mb-3">
+                    <label for="enrollDeadline">Enrollment deadline</label>
+                    <InputDate id="enrollDeadline" class="form-control" @bind-Value="trainingEvent.EnrollmentDeadline" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="location">Location</label>
+                    <InputText id="location" class="form-control" @bind-Value="trainingEvent.Location" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="provider">Provider</label>
+                    <InputText id="provider" class="form-control" @bind-Value="trainingEvent.Provider" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="instructor">Instructor</label>
+                    <InputText id="instructor" class="form-control" @bind-Value="trainingEvent.Instructor" />
+                </div>
+
+                <div class="col-md-3 mb-3">
+                    <label for="duration">Duration (hours)</label>
+                    <InputNumber id="duration" class="form-control" @bind-Value="trainingEvent.DurationHours" />
+                </div>
+
+                <div class="col-md-3 mb-3 form-check align-items-center d-flex">
+                    <InputCheckbox id="certIssued" class="form-check-input me-2" @bind-Value="trainingEvent.CertificationIssued" />
+                    <label for="certIssued" class="form-check-label mb-0">Certification issued</label>
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="certBy">Certification issued by</label>
+                    <InputText id="certBy" class="form-control" @bind-Value="trainingEvent.CertificationIssuedBy" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="certExpiry">Certification expiry date</label>
+                    <InputDate id="certExpiry" class="form-control" @bind-Value="trainingEvent.CertificationExpiryDate" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="status">Status</label>
+                    <InputText id="status" class="form-control" @bind-Value="trainingEvent.Status" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="mandatedBy">Mandated by</label>
+                    <InputText id="mandatedBy" class="form-control" @bind-Value="trainingEvent.MandatedBy" />
+                </div>
+
+                <div class="col-12 mb-3">
+                    <label for="notes">Notes</label>
+                    <InputTextArea id="notes" class="form-control" rows="3" @bind-Value="trainingEvent.Notes" />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label>Record Created By</label>
+                    <InputText class="form-control" @bind-Value="trainingEvent.RecordCreatedBy" disabled />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label>Record Created Date</label>
+                    <InputDate class="form-control" @bind-Value="trainingEvent.RecordCreatedDate" disabled />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label>Record Updated By</label>
+                    <InputText class="form-control" @bind-Value="trainingEvent.RecordUpdatedBy" disabled />
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label>Record Updated Date</label>
+                    <InputDate class="form-control" @bind-Value="trainingEvent.RecordUpdatedDate" disabled />
+                </div>
+            </div>
+
+            <div class="card-footer d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-secondary" @onclick="@(() => NavigationManager.NavigateTo("/"))">Cancel</button>
+                <button type="button" class="btn btn-danger" @onclick="DeleteEvent">Delete</button>
+                <button type="submit" class="btn btn-success">Save</button>
+            </div>
+        </EditForm>
+
+        @if (!string.IsNullOrWhiteSpace(statusMessage))
+        {
+            <div class="@statusAlertClass mt-3 mx-3 p-3" role="alert">
+                <div>@(statusMessage)</div>
+                <button type="button" class="btn-close float-end" aria-label="Close" @onclick="ClearStatus"></button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public int EventId { get; set; }
+
+    private TrainingEvent? trainingEvent;
+
+    private string? statusMessage;
+    private string statusAlertClass = "alert alert-success";
+    private System.Threading.CancellationTokenSource? statusCts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        TrainingEvent? serverEvent = null;
+
+        if (EventId > 0)
+        {
+            try
+            {
+                serverEvent = await HttpClient.GetFromJsonAsync<TrainingEvent>($"api/trainingevent/{EventId}");
+            }
+            catch (HttpRequestException)
+            {
+                serverEvent = null;
+            }
+        }
+
+        if (!IsServerEventValid(serverEvent))
+        {
+            trainingEvent = new TrainingEvent
+            {
+                Id = 0,
+                Title = string.Empty,
+                Description = string.Empty,
+                TrainingType = string.Empty,
+                TrainingCategory = string.Empty,
+                TrainingSubCategory = string.Empty,
+                TrainingTier = string.Empty,
+                SkillLevel = string.Empty,
+                SkillArea = string.Empty,
+                AssessmentCriteria = string.Empty,
+                Audience = string.Empty,
+                Prerequisites = string.Empty,
+                Objectives = string.Empty,
+                MaterialsProvided = string.Empty,
+                DeliveryMethod = string.Empty,
+                Schedule = string.Empty,
+                StartDate = DateTime.UtcNow,
+                EndDate = DateTime.UtcNow,
+                EnrollmentDeadline = DateTime.UtcNow,
+                Location = string.Empty,
+                Provider = string.Empty,
+                Instructor = string.Empty,
+                DurationHours = 0,
+                CertificationIssued = false,
+                CertificationIssuedBy = string.Empty,
+                CertificationExpiryDate = DateTime.UtcNow,
+                Notes = string.Empty,
+                Status = string.Empty,
+                MandatedBy = string.Empty,
+                RecordCreatedBy = "system",
+                RecordCreatedDate = DateTime.UtcNow,
+                RecordUpdatedBy = "system",
+                RecordUpdatedDate = DateTime.UtcNow
+            };
+        }
+        else
+        {
+            trainingEvent = serverEvent;
+        }
+    }
+
+    private static bool IsServerEventValid(TrainingEvent? e)
+    {
+        return e is not null && e.Id != 0;
+    }
+
+    private async Task SaveEvent()
+    {
+        if (trainingEvent is null)
+            return;
+
+        trainingEvent.RecordUpdatedDate = DateTime.UtcNow;
+        trainingEvent.RecordUpdatedBy = string.IsNullOrWhiteSpace(trainingEvent.RecordUpdatedBy) ? "system" : trainingEvent.RecordUpdatedBy;
+
+        try
+        {
+            if (trainingEvent.Id == 0)
+            {
+                var postResponse = await HttpClient.PostAsJsonAsync("api/trainingevent", trainingEvent);
+
+                if (postResponse.IsSuccessStatusCode)
+                {
+                    var created = await postResponse.Content.ReadFromJsonAsync<TrainingEvent>();
+                    if (created is not null)
+                    {
+                        trainingEvent = created;
+                        ShowStatus("Training event created successfully.", "alert alert-success");
+                    }
+                }
+                else
+                {
+                    var err = await postResponse.Content.ReadAsStringAsync();
+                    ShowStatus($"POST failed: {(int)postResponse.StatusCode} {postResponse.ReasonPhrase} - {err}", "alert alert-danger");
+                    throw new HttpRequestException($"POST api/trainingevent failed: {(int)postResponse.StatusCode} {postResponse.ReasonPhrase} - {err}");
+                }
+            }
+            else
+            {
+                var putResponse = await HttpClient.PutAsJsonAsync($"api/trainingevent", trainingEvent);
+
+                if (putResponse.IsSuccessStatusCode)
+                {
+                    if (putResponse.Content != null && putResponse.Content.Headers.ContentLength > 0)
+                    {
+                        var updated = await putResponse.Content.ReadFromJsonAsync<TrainingEvent>();
+                        if (updated is not null)
+                        {
+                            trainingEvent = updated;
+                        }
+                    }
+
+                    ShowStatus("Training event updated successfully.", "alert alert-success");
+                }
+                else
+                {
+                    var err = await putResponse.Content.ReadAsStringAsync();
+                    ShowStatus($"PUT failed: {(int)putResponse.StatusCode} {putResponse.ReasonPhrase} - {err}", "alert alert-danger");
+                    throw new HttpRequestException($"PUT api/trainingevent failed: {(int)putResponse.StatusCode} {putResponse.ReasonPhrase} - {err}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"Error: {ex.Message}", "alert alert-danger");
+            Console.Error.WriteLine(ex);
+            throw;
+        }
+    }
+
+    private async Task DeleteEvent()
+    {
+        if (trainingEvent is null)
+            return;
+
+        if (trainingEvent.Id != 0)
+        {
+            await HttpClient.DeleteAsync($"api/trainingevent/{trainingEvent.Id}");
+            trainingEvent = null;
+        }
+    }
+
+    private void ShowStatus(string message, string alertClass = "alert alert-success", int autoHideMs = 4000)
+    {
+        statusCts?.Cancel();
+        statusMessage = message;
+        statusAlertClass = alertClass;
+        StateHasChanged();
+
+        if (autoHideMs > 0)
+        {
+            var cts = new System.Threading.CancellationTokenSource();
+            statusCts = cts;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(autoHideMs, cts.Token);
+                    statusMessage = null;
+                    await InvokeAsync(StateHasChanged);
+                }
+                catch (TaskCanceledException) { }
+            });
+        }
+    }
+
+    private void ClearStatus()
+    {
+        statusCts?.Cancel();
+        statusMessage = null;
+        StateHasChanged();
+    }
+}
