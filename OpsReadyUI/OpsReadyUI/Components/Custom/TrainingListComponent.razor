@@ -76,37 +76,13 @@ else
                 <tr>
                     <th>Id</th>
                     <th>Title</th>
-                    <th>Description</th>
                     <th>Type</th>
                     <th>Category</th>
-                    <th>SubCategory</th>
-                    <th>Tier</th>
-                    <th>SkillLevel</th>
-                    <th>SkillArea</th>
-                    <th>AssessmentCriteria</th>
-                    <th>Audience</th>
-                    <th>Prerequisites</th>
-                    <th>Objectives</th>
-                    <th>MaterialsProvided</th>
-                    <th>DeliveryMethod</th>
-                    <th>Schedule</th>
                     <th>StartDate</th>
-                    <th>EndDate</th>
                     <th>EnrollmentDeadline</th>
                     <th>Location</th>
                     <th>Provider</th>
-                    <th>Instructor</th>
                     <th>DurationHours</th>
-                    <th>CertificationIssued</th>
-                    <th>CertificationIssuedBy</th>
-                    <th>CertificationExpiryDate</th>
-                    <th>Status</th>
-                    <th>MandatedBy</th>
-                    <th>Notes</th>
-                    <th>RecordCreatedBy</th>
-                    <th>RecordCreatedDate</th>
-                    <th>RecordUpdatedBy</th>
-                    <th>RecordUpdatedDate</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -116,37 +92,14 @@ else
                     <tr>
                         <td>@ev.Id</td>
                         <td>@ev.Title</td>
-                        <td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">@ev.Description</td>
                         <td>@ev.TrainingType</td>
-                        <td>@ev.TrainingCategory</td>
-                        <td>@ev.TrainingSubCategory</td>
-                        <td>@ev.TrainingTier</td>
-                        <td>@ev.SkillLevel</td>
-                        <td>@ev.SkillArea</td>
-                        <td style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">@ev.AssessmentCriteria</td>
-                        <td>@ev.Audience</td>
-                        <td>@ev.Prerequisites</td>
-                        <td style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">@ev.Objectives</td>
-                        <td>@ev.MaterialsProvided</td>
-                        <td>@ev.DeliveryMethod</td>
-                        <td>@ev.Schedule</td>
+                        <td>@ev.TrainingCategory</td>                 
                         <td>@(ev.StartDate.ToString("yyyy-MM-dd"))</td>
-                        <td>@(ev.EndDate.ToString("yyyy-MM-dd"))</td>
                         <td>@(ev.EnrollmentDeadline.ToString("yyyy-MM-dd"))</td>
                         <td>@ev.Location</td>
                         <td>@ev.Provider</td>
-                        <td>@ev.Instructor</td>
                         <td>@ev.DurationHours</td>
-                        <td>@(ev.CertificationIssued ? "Yes" : "No")</td>
-                        <td>@ev.CertificationIssuedBy</td>
-                        <td>@(ev.CertificationExpiryDate.ToString("yyyy-MM-dd"))</td>
-                        <td>@ev.Status</td>
-                        <td>@ev.MandatedBy</td>
-                        <td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">@ev.Notes</td>
-                        <td>@ev.RecordCreatedBy</td>
-                        <td>@(ev.RecordCreatedDate.ToString("yyyy-MM-dd"))</td>
-                        <td>@ev.RecordUpdatedBy</td>
-                        <td>@(ev.RecordUpdatedDate.ToString("yyyy-MM-dd"))</td>
+                        
                         <td>
                             <div class="btn-group" role="group">
                                 <button class="btn btn-primary btn-sm" @onclick="() => ViewEvent(ev.Id)">View</button>
