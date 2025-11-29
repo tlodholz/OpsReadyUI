@@ -13,14 +13,23 @@ else if (!users.Any())
 }
 else
 {
-    <div class="sorting-options">
-        <input type="radio" value="FirstName" @onchange="HandleSortChange" checked="@(SelectedSort == "Username")" /> Username
-        <input type="radio" value="LastName" @onchange="HandleSortChange" checked="@(SelectedSort == "Email")" /> Email
-        <input type="radio" value="Email" @onchange="HandleSortChange" checked="@(SelectedSort == "Role")" /> Role
-        <input type="radio" value="Email" @onchange="HandleSortChange" checked="@(SelectedSort == "BadgeLevel")" /> Badge Level
-        <input type="radio" value="Email" @onchange="HandleSortChange" checked="@(SelectedSort == "CreatedAt")" /> Created At
+    <div class="mb-3 d-flex gap-2 flex-wrap">
+        <input class="form-control w-auto" placeholder="Search users..." @bind="SearchText" />
+
+        <select class="form-select w-auto" @bind="SelectedSort">
+            <option value="Username">Username</option>
+            <option value="Email">Email</option>
+            <option value="Role">Role</option>
+            <option value="BadgeLevel">Badge Level</option>
+            <option value="CreatedAt">Created At</option>
+        </select>
+
+        <div class="d-flex gap-1 align-items-center">
+            <label class="m-0 small">Page size</label>
+            <InputNumber class="form-control w-25" @bind-Value="PageSize" />
+        </div>
     </div>
-    <input type="text" @bind="SearchText" placeholder="Search users..." />
+
     <table class="table">
         <thead>
             <tr>
@@ -69,14 +78,19 @@ else
         </tbody>
     </table>
 
-    <div class="pagination-controls">
-        <button @onclick="PreviousPage" disabled="@(CurrentPage == 1)">Previous</button>
-        @for (int i = 1; i <= TotalPages; i++)
-        {
-            var pageNumber = i; // Create a scoped variable to avoid capturing issues
-                                <button @onclick="() => GoToPage(pageNumber)" class="@(CurrentPage == pageNumber ? "active" : "")">@pageNumber</button>
-        }
-        <button @onclick="NextPage" disabled="@(CurrentPage == TotalPages)">Next</button>
+    <div class="d-flex justify-content-between align-items-center mt-2">
+        <div>
+            Showing @((CurrentPage - 1) * PageSize + 1) - @Math.Min(CurrentPage * PageSize, SortedAndFilteredUsers.Count()) of @SortedAndFilteredUsers.Count()
+        </div>
+        <div>
+            <button class="btn btn-secondary btn-sm" @onclick="PreviousPage" disabled="@(CurrentPage == 1)">Previous</button>
+            @for (int i = 1; i <= TotalPages; i++)
+            {
+                var pageNumber = i;
+                <button class="btn btn-sm @(CurrentPage == pageNumber ? "btn-primary" : "btn-outline-secondary") mx-1" @onclick="() => GoToPage(pageNumber)">@pageNumber</button>
+            }
+            <button class="btn btn-secondary btn-sm" @onclick="NextPage" disabled="@(CurrentPage == TotalPages)">Next</button>
+        </div>
     </div>
 
 }
