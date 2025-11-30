@@ -8,6 +8,11 @@
 @inject NavigationManager NavigationManager
 @rendermode InteractiveServer
 
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="m-0">Training Events</h3>
+    <button class="btn btn-primary" @onclick="@(() => NavigationManager.NavigateTo("/training/event"))">New</button>
+</div>
+
 <TrainingListComponent></TrainingListComponent>
 
 @code {

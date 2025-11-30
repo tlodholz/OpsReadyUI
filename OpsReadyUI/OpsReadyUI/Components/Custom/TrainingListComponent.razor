@@ -4,8 +4,6 @@
 @inject NavigationManager NavigationManager
 @rendermode InteractiveServer
 
-<h3>Training Events</h3>
-
 @if (events == null)
 {
     <p>Loading...</p>
@@ -78,11 +76,11 @@ else
                     <th>Title</th>
                     <th>Type</th>
                     <th>Category</th>
-                    <th>StartDate</th>
-                    <th>EnrollmentDeadline</th>
+                    <th>Start</th>
+                    <th>Deadline</th>
                     <th>Location</th>
                     <th>Provider</th>
-                    <th>DurationHours</th>
+                    <th>Hours</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -102,9 +100,10 @@ else
                         
                         <td>
                             <div class="btn-group" role="group">
-                                <button class="btn btn-primary btn-sm" @onclick="() => ViewEvent(ev.Id)">View</button>
-                                <button class="btn btn-dark btn-sm" @onclick="() => EditEvent(ev.Id)">Edit</button>
-                                <button class="btn btn-danger btn-sm" @onclick="() => ConfirmDelete(ev.Id)">Delete</button>
+                                <!-- Link to TrainingEventPage, passing the event id in the route -->
+                                <a class="btn btn-primary btn-sm" href="@($"/training/event/{ev.Id}")">View</a>
+                                <!-- Assign button placeholder (link/action can be updated later) -->
+                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => AssignEvent(ev.Id)">Assign</button>
                             </div>
                         </td>
                     </tr>
@@ -146,9 +145,7 @@ else
     private int PageSize { get; set; } = 10;
     private int TotalPages => Math.Max(1, (int)Math.Ceiling((double)FilteredSortedEvents.Count() / PageSize));
 
-    // status
-    private int? toDeleteId;
-
+    // status (deletion handled elsewhere)
     protected override async Task OnInitializedAsync()
     {
         try
@@ -239,57 +236,10 @@ else
         if (CurrentPage < TotalPages) CurrentPage++;
     }
 
-    private void ViewEvent(int id)
+    // Placeholder action for the new Assign button. Update the navigation or handler when ready.
+    private void AssignEvent(int id)
     {
-        NavigationManager.NavigateTo($"/training/event/{id}");
-    }
-
-    private void EditEvent(int id)
-    {
-        NavigationManager.NavigateTo($"/training/edit/{id}");
-    }
-
-    private void ConfirmDelete(int id)
-    {
-        toDeleteId = id;
-        if (confirmDelete)
-        {
-            _ = DeleteEvent(id);
-        }
-        else
-        {
-            // simple JS-like confirm replacement using browser confirm via NavigationManager is not available here.
-            // We'll perform deletion immediately to keep the component simple; if you want a modal confirm, I can add one.
-            _ = DeleteEvent(id);
-        }
-    }
-
-    private bool confirmDelete = false;
-
-    private async Task DeleteEvent(int id)
-    {
-        try
-        {
-            var resp = await HttpClient.DeleteAsync($"api/trainingevent/{id}");
-            if (resp.IsSuccessStatusCode)
-            {
-                var item = events.FirstOrDefault(e => e.Id == id);
-                if (item != null) events.Remove(item);
-
-                // adjust paging if needed
-                if ((CurrentPage - 1) * PageSize >= FilteredSortedEvents.Count() && CurrentPage > 1)
-                {
-                    CurrentPage--;
-                }
-            }
-            else
-            {
-                Console.Error.WriteLine($"Delete failed: {(int)resp.StatusCode} {resp.ReasonPhrase}");
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"Error deleting event {id}: {ex.Message}");
-        }
+        // default placeholder route — you can change this to the final link later
+        NavigationManager.NavigateTo($"/training/assign/{id}");
     }
 }

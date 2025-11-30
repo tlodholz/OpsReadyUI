@@ -1,10 +1,70 @@
-﻿@page "/training/event/"
+﻿@page "/training/event"
+@page "/training/event/{eventId:int}"
 @using OpsReadyUI.Components.Custom
 @inject NavigationManager NavigationManager
 @inject HttpClient Http
 
-<TrainingEventComponent></TrainingEventComponent>
+@if (isLoading)
+{
+    <p>Loading...</p>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <p class="text-danger">@errorMessage</p>
+}
+else
+{
+    <TrainingEventComponent EventId="@eventId"></TrainingEventComponent>
+}
 
 @code {
+    [Parameter]
+    public int eventId { get; set; }
 
+    private bool isLoading = true;
+    private string? errorMessage;
+    private bool eventExists;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        eventExists = false;
+
+        if (eventId <= 0)
+        {
+            // no id — treat as "create new"
+            isLoading = false;
+            return;
+        }
+
+        try
+        {
+            var response = await Http.GetAsync($"/api/trainingevent/{eventId}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                // 200 OK => event exists
+                eventExists = true;
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                // 404 => event does not exist (component will prepare an empty model so Save will POST)
+                eventExists = false;
+            }
+            else
+            {
+                // surface other server errors
+                errorMessage = $"Server returned {(int)response.StatusCode} {response.ReasonPhrase}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
 }
