@@ -44,10 +44,10 @@ else
 
                 <dl class="row mb-0">
                     <dt class="col-sm-3">Dates</dt>
-                    <dd class="col-sm-9">@trainingEvent.StartDate — @trainingEvent.EndDate</dd>
+                    <dd class="col-sm-9">@(trainingEvent.StartDate.ToString("yyyy-MM-dd")) — @(trainingEvent.EndDate.ToString("yyyy-MM-dd"))</dd>
 
                     <dt class="col-sm-3">Enrollment Deadline</dt>
-                    <dd class="col-sm-9">@trainingEvent.EnrollmentDeadline</dd>
+                    <dd class="col-sm-9">@(trainingEvent.EnrollmentDeadline.ToString("yyyy-MM-dd"))</dd>
 
                     <dt class="col-sm-3">Location</dt>
                     <dd class="col-sm-9">@trainingEvent.Location</dd>
