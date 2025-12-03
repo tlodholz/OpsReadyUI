@@ -1,0 +1,254 @@
+﻿@using System.Linq
+@using OpsReady.Models
+@using System.Net.Http.Json
+@inject HttpClient HttpClient
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+@if (eventId <= 0)
+{
+    <h3>Assign Users to Training</h3>
+    <div class="alert alert-secondary">No training event selected.</div>
+}
+else
+{
+    <h3>Assign Users to Training</h3>
+
+    @if (isEventLoading)
+    {
+        <div class="mb-3"><em>Loading event summary...</em></div>
+    }
+    else if (!string.IsNullOrWhiteSpace(eventError))
+    {
+        <div class="mb-3 alert alert-danger">@eventError</div>
+    }
+    else if (trainingEvent is not null)
+    {
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title mb-1">@trainingEvent.Title</h5>
+                        <div class="text-muted small">@trainingEvent.TrainingCategory @(!string.IsNullOrWhiteSpace(trainingEvent.TrainingSubCategory) ? $" / {trainingEvent.TrainingSubCategory}" : "")</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="small text-muted">Event Id: @trainingEvent.Id</div>
+                        <div class="small text-muted">Provider: @trainingEvent.Provider</div>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(trainingEvent.Description))
+                {
+                    <p class="mt-2 mb-2">@trainingEvent.Description</p>
+                }
+
+                <dl class="row mb-0">
+                    <dt class="col-sm-3">Dates</dt>
+                    <dd class="col-sm-9">@trainingEvent.StartDate:yyyy-MM-dd — @trainingEvent.EndDate:yyyy-MM-dd</dd>
+
+                    <dt class="col-sm-3">Enrollment Deadline</dt>
+                    <dd class="col-sm-9">@trainingEvent.EnrollmentDeadline:yyyy-MM-dd</dd>
+
+                    <dt class="col-sm-3">Location</dt>
+                    <dd class="col-sm-9">@trainingEvent.Location</dd>
+
+                    <dt class="col-sm-3">Instructor</dt>
+                    <dd class="col-sm-9">@trainingEvent.Instructor</dd>
+
+                    <dt class="col-sm-3">Duration</dt>
+                    <dd class="col-sm-9">@trainingEvent.DurationHours hrs</dd>
+
+                    <dt class="col-sm-3">Certification</dt>
+                    <dd class="col-sm-9">@((trainingEvent.CertificationIssued) ? $"Yes — {trainingEvent.CertificationIssuedBy}" : "No")</dd>
+                </dl>
+            </div>
+        </div>
+    }
+}
+
+<div class="mb-3 d-flex gap-2">
+    <input class="form-control w-50" placeholder="Search users by name, email, badge, position..." @bind="searchText" />
+
+    <div class="form-check align-items-center">
+        <input class="form-check-input" type="checkbox" id="selectAll" checked="@IsAllVisibleSelected" @onchange="ToggleSelectAll" />
+        <label class="form-check-label ms-1" for="selectAll">Select visible (@VisibleCount)</label>
+    </div>
+
+    <button class="btn btn-primary ms-auto" @onclick="ApplySelection" disabled="@(SelectedUserIds.Count == 0)">Apply selection (@SelectedUserIds.Count)</button>
+</div>
+
+@if (profiles == null)
+{
+    <p><em>Loading users...</em></p>
+}
+else if (!FilteredProfiles.Any())
+{
+    <p>No users match your search.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-sm table-striped">
+            <thead>
+                <tr>
+                    <th style="width:48px"></th>
+                    <th>ProfileId</th>
+                    <th>UserId</th>
+                    <th>First</th>
+                    <th>Last</th>
+                    <th>Email</th>
+                    <th>Badge</th>
+                    <th>Position</th>
+                    <th>Department</th>
+                    <th>Location</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var u in FilteredProfiles)
+                {
+                    <tr>
+                        <td>
+                            <input class="form-check-input" type="checkbox"
+                                   checked="@SelectedUserIds.Contains(u.UserId)"
+                                   @onchange="(ChangeEventArgs e) => ToggleSelection(u.UserId, e)" />
+                        </td>
+                        <td>@u.Id</td>
+                        <td>@u.UserId</td>
+                        <td>@u.FirstName</td>
+                        <td>@u.LastName</td>
+                        <td>@u.EmailAddress</td>
+                        <td>@u.BadgeNumber</td>
+                        <td>@u.Position</td>
+                        <td>@u.Department</td>
+                        <td>@u.Location</td>
+                        <td>@u.Status</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [Parameter] public int eventId { get; set; }
+
+    // Optional: receive initial selection of user ids (authentication ids)
+    [Parameter] public List<int>? InitialSelectedUserIds { get; set; }
+
+    // Parent can react to selection of user ids
+    [Parameter] public EventCallback<List<int>> OnSelectionChanged { get; set; }
+
+    private List<UserProfile>? profiles;
+    private HashSet<int> SelectedUserIds { get; set; } = new();
+    private string searchText { get; set; } = string.Empty;
+
+    // event summary
+    private TrainingEvent? trainingEvent;
+    private bool isEventLoading;
+    private string? eventError;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+
+        // load event summary when eventId changes
+        if (eventId > 0)
+        {
+            isEventLoading = true;
+            eventError = null;
+            trainingEvent = null;
+
+            try
+            {
+                trainingEvent = await HttpClient.GetFromJsonAsync<TrainingEvent>($"api/trainingevent/{eventId}");
+            }
+            catch (HttpRequestException ex)
+            {
+                eventError = $"Failed to load event: {ex.Message}";
+            }
+            catch (Exception ex)
+            {
+                eventError = $"Unexpected error loading event: {ex.Message}";
+            }
+            finally
+            {
+                isEventLoading = false;
+            }
+        }
+        else
+        {
+            trainingEvent = null;
+            eventError = null;
+        }
+
+        // ensure profiles are loaded (profiles load once if null)
+        if (profiles == null)
+        {
+            try
+            {
+                profiles = await HttpClient.GetFromJsonAsync<List<UserProfile>>("api/userprofile") ?? new List<UserProfile>();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Error loading user profiles: {ex.Message}");
+                profiles = new List<UserProfile>();
+            }
+
+            if (InitialSelectedUserIds is not null)
+            {
+                SelectedUserIds = InitialSelectedUserIds.ToHashSet();
+            }
+        }
+    }
+
+    private IEnumerable<UserProfile> FilteredProfiles => (profiles ?? Enumerable.Empty<UserProfile>())
+        .Where(u =>
+            string.IsNullOrWhiteSpace(searchText) ||
+            (u.FirstName ?? string.Empty).Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+            (u.LastName ?? string.Empty).Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+            (u.EmailAddress ?? string.Empty).Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+            (u.BadgeNumber ?? string.Empty).Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+            (u.Position ?? string.Empty).Contains(searchText, StringComparison.OrdinalIgnoreCase)
+        )
+        .OrderBy(u => u.LastName)
+        .ThenBy(u => u.FirstName);
+
+    private int VisibleCount => FilteredProfiles.Count();
+
+    private bool IsAllVisibleSelected => VisibleCount > 0 && FilteredProfiles.All(u => SelectedUserIds.Contains(u.UserId));
+
+    private void ToggleSelectAll(ChangeEventArgs e)
+    {
+        var check = e.Value is bool b && b;
+        if (check)
+        {
+            foreach (var u in FilteredProfiles)
+                SelectedUserIds.Add(u.UserId);
+        }
+        else
+        {
+            foreach (var u in FilteredProfiles)
+                SelectedUserIds.Remove(u.UserId);
+        }
+    }
+
+    private void ToggleSelection(int userId, ChangeEventArgs e)
+    {
+        var isChecked = e.Value is bool b && b;
+        if (isChecked) SelectedUserIds.Add(userId);
+        else SelectedUserIds.Remove(userId);
+    }
+
+    private async Task ApplySelection()
+    {
+        // Notify parent component (if set) with selected authentication user ids.
+        if (OnSelectionChanged.HasDelegate)
+        {
+            await OnSelectionChanged.InvokeAsync(SelectedUserIds.ToList());
+        }
+
+        // Optionally post assignments to the server here:
+        // await HttpClient.PostAsJsonAsync($"api/training/{eventId}/assign", SelectedUserIds.ToList());
+    }
+}

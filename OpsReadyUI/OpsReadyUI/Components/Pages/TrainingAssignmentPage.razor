@@ -1,0 +1,11 @@
+﻿@page "/training/assign/{eventId:int}"
+@using OpsReadyUI.Components.Custom
+@inject NavigationManager NavigationManager
+@inject HttpClient Http
+
+<TrainingAssignmentComponent EventId="@eventId"></TrainingAssignmentComponent>
+
+
+@code {
+    [Parameter] public int eventId { get; set; }
+}

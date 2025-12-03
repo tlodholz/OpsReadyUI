@@ -103,7 +103,7 @@ else
                                 <!-- Link to TrainingEventPage, passing the event id in the route -->
                                 <a class="btn btn-primary btn-sm" href="@($"/training/event/{ev.Id}")">View</a>
                                 <!-- Assign button placeholder (link/action can be updated later) -->
-                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => AssignEvent(ev.Id)">Assign</button>
+                                <a class="btn btn-secondary btn-sm" href="@($"/training/assign/{ev.Id}")">Assign</a>
                             </div>
                         </td>
                     </tr>
