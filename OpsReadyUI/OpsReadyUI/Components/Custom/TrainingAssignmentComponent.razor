@@ -66,6 +66,14 @@ else
     }
 }
 
+@if (!string.IsNullOrWhiteSpace(statusMessage))
+{
+    <div class="@statusAlertClass mb-3" role="alert">
+        <div>@statusMessage</div>
+        <button type="button" class="btn-close float-end" aria-label="Close" @onclick="ClearStatus"></button>
+    </div>
+}
+
 <div class="mb-3 d-flex gap-2">
     <input class="form-control w-50" placeholder="Search users by name, email, badge, position..." @bind="searchText" />
 
@@ -147,6 +155,11 @@ else
     private TrainingEvent? trainingEvent;
     private bool isEventLoading;
     private string? eventError;
+
+    // status message (top-only)
+    private string? statusMessage;
+    private string statusAlertClass = "alert alert-success";
+    private System.Threading.CancellationTokenSource? statusCts;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -248,7 +261,78 @@ else
             await OnSelectionChanged.InvokeAsync(SelectedUserIds.ToList());
         }
 
-        // Optionally post assignments to the server here:
-        // await HttpClient.PostAsJsonAsync($"api/training/{eventId}/assign", SelectedUserIds.ToList());
+        if (eventId <= 0)
+        {
+            Console.Error.WriteLine("Cannot apply selection - invalid event id.");
+            return;
+        }
+
+        // Build list of TrainingAssignment objects to post to API
+        var now = DateTime.UtcNow;
+        var assignments = SelectedUserIds.Select(uid => new TrainingAssignment
+        {
+            // Id left as default (server should set)
+            TrainingEventId = eventId,
+            UserId = uid,
+            AssignedDate = now,
+            AssignedByUserId = 0, // update if you have the current user's id
+            CreatedDate = now
+        }).ToList();
+
+        try
+        {
+            // Post to server endpoint. Adjust route if your API expects a different path.
+            var resp = await HttpClient.PostAsJsonAsync($"api/trainingassignment", assignments);
+
+            if (resp.IsSuccessStatusCode)
+            {
+                // clear selection after successful assign
+                SelectedUserIds.Clear();
+                ShowStatus("Users were successfully added to the database.", "alert alert-success");
+                await InvokeAsync(StateHasChanged);
+            }
+            else
+            {
+                var err = await resp.Content.ReadAsStringAsync();
+                Console.Error.WriteLine($"Assign failed: {(int)resp.StatusCode} {resp.ReasonPhrase} - {err}");
+                ShowStatus($"Assign failed: {(int)resp.StatusCode} {resp.ReasonPhrase}", "alert alert-danger");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error assigning users: {ex}");
+            ShowStatus("Error assigning users. See console for details.", "alert alert-danger");
+        }
+    }
+
+    private void ShowStatus(string message, string alertClass = "alert alert-success", int autoHideMs = 4000)
+    {
+        statusCts?.Cancel();
+        statusMessage = message;
+        statusAlertClass = alertClass;
+        StateHasChanged();
+
+        if (autoHideMs > 0)
+        {
+            var cts = new System.Threading.CancellationTokenSource();
+            statusCts = cts;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(autoHideMs, cts.Token);
+                    statusMessage = null;
+                    await InvokeAsync(StateHasChanged);
+                }
+                catch (TaskCanceledException) { }
+            });
+        }
+    }
+
+    private void ClearStatus()
+    {
+        statusCts?.Cancel();
+        statusMessage = null;
+        StateHasChanged();
     }
 }

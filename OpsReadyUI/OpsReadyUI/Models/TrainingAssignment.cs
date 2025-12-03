@@ -1,13 +1,12 @@
 ﻿using System;
 
-namespace OpsReadyUI.Models
+namespace OpsReady.Models
 {
     public class TrainingAssignment
     {
         public int Id { get; set; }
         public int TrainingEventId { get; set; }
         public int UserId { get; set; }
-        public int TrainingRecordId { get; set; }
         public DateTime AssignedDate { get; set; }
         public int AssignedByUserId { get; set; }
         public DateTime CreatedDate { get; set; }
