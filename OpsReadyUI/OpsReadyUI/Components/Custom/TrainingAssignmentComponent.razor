@@ -75,21 +75,8 @@ else
     }
 }
 
-<nav>
-    <ul class="nav nav-tabs mb-3">
-        <li class="nav-item">
-            <a class="nav-link @(activeTab == 0 ? "active" : "")" href="#" @onclick:preventDefault="true" @onclick="() => SelectTab(0)">Select Users (@SelectedUserIds.Count)</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link @(activeTab == 1 ? "active" : "")" href="#" @onclick:preventDefault="true" @onclick="() => SelectTab(1)">Assigned Users (@AssignedProfiles?.Count ?? 0)</a>
-        </li>
-    </ul>
-</nav>
-
-@if (activeTab == 0)
-{
-    <div class="mb-3 d-flex gap-2">
-        <input class="form-control w-50" placeholder="Search users by name, email, badge, position..." @bind="searchText" />
+<div class="mb-3 d-flex gap-2">
+    <input class="form-control w-50" placeholder="Search users by name, email, badge, position..." @bind="searchText" />
 
         <div class="form-check align-items-center">
             <input class="form-check-input" type="checkbox" id="selectAll" checked="@IsAllVisibleSelected" @onchange="ToggleSelectAll" />
@@ -212,20 +199,6 @@ else if (activeTab == 1)
     private TrainingEvent? trainingEvent;
     private bool isEventLoading;
     private string? eventError;
-
-    // tabs
-    private int activeTab = 0;
-
-    // assignments / assigned users
-    private List<UserProfile>? AssignedProfiles;
-    private List<TrainingAssignment>? AssignedAssignments;
-    private HashSet<int> AssignedSelectedIds { get; set; } = new();
-    private bool isAssignedLoading;
-
-    // UI status
-    private string? statusMessage;
-    private string statusAlertClass = "alert alert-info";
-    private System.Threading.CancellationTokenSource? statusCts;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -384,197 +357,11 @@ else if (activeTab == 1)
     // Assign users — robust: try configured endpoint, then fall back to posting individual TrainingAssignment objects
     private async Task ApplySelection()
     {
-        if (eventId <= 0)
+        // Notify parent component (if set) with selected authentication user ids.
+        if (OnSelectionChanged.HasDelegate)
         {
-            ShowStatus("No event selected to assign users to.", "alert alert-danger");
-            return;
+            await OnSelectionChanged.InvokeAsync(SelectedUserIds.ToList());
         }
-
-        if (!SelectedUserIds.Any())
-        {
-            ShowStatus("No users selected.", "alert alert-warning");
-            return;
-        }
-
-        ShowStatus("Assigning users...", "alert alert-info");
-
-        var userIds = SelectedUserIds.ToList();
-
-        // First try the compact endpoint that was originally used
-        var compactPayload = new { eventId = eventId, userIds = userIds };
-
-        try
-        {
-            var resp = await HttpClient.PostAsJsonAsync("api/trainingassignment/assign", compactPayload);
-
-            if (resp.IsSuccessStatusCode)
-            {
-                await LoadAssignedProfiles();
-                SelectedUserIds.Clear();
-                if (OnSelectionChanged.HasDelegate) await OnSelectionChanged.InvokeAsync(new List<int>());
-                activeTab = 1;
-                ShowStatus("Users assigned successfully.", "alert alert-success");
-                return;
-            }
-
-            // If server specifically rejects the method, try alternative formats
-            if (resp.StatusCode == HttpStatusCode.MethodNotAllowed || resp.StatusCode == HttpStatusCode.NotFound)
-            {
-                // fall through to alternatives below
-            }
-            else
-            {
-                var body = resp.Content is not null ? await resp.Content.ReadAsStringAsync() : string.Empty;
-                ShowStatus($"Assign failed: {(int)resp.StatusCode} {resp.ReasonPhrase} - {body}", "alert alert-danger");
-                Console.Error.WriteLine($"Assign failed: {(int)resp.StatusCode} {resp.ReasonPhrase} - {body}");
-                return;
-            }
-        }
-        catch (HttpRequestException ex)
-        {
-            // network-level error — try fallback attempts but report
-            Console.Error.WriteLine($"Assign (compact) request failed: {ex.Message}");
-        }
-
-        // Fallback 1: Some backends expect POST to "api/trainingassignment" with one TrainingAssignment per user (either array or individual posts).
-        // Try posting an array of TrainingAssignment objects.
-        var assignments = userIds.Select(uid => new TrainingAssignment
-        {
-            Id = 0,
-            TrainingEventId = eventId,
-            UserId = uid,
-            TrainingRecordId = 0,
-            AssignedDate = DateTime.UtcNow,
-            AssignedByUserId = 0,
-            CreatedDate = DateTime.UtcNow
-        }).ToList();
-
-        try
-        {
-            // Try posting the array
-            var respArray = await HttpClient.PostAsJsonAsync("api/trainingassignment", assignments);
-            if (respArray.IsSuccessStatusCode)
-            {
-                await LoadAssignedProfiles();
-                SelectedUserIds.Clear();
-                if (OnSelectionChanged.HasDelegate) await OnSelectionChanged.InvokeAsync(new List<int>());
-                activeTab = 1;
-                ShowStatus("Users assigned (bulk) successfully.", "alert alert-success");
-                return;
-            }
-
-            // If array isn't accepted, try individual posts
-            if (respArray.StatusCode == HttpStatusCode.MethodNotAllowed || respArray.StatusCode == HttpStatusCode.UnsupportedMediaType || respArray.StatusCode == HttpStatusCode.NotFound)
-            {
-                foreach (var asg in assignments)
-                {
-                    try
-                    {
-                        var r = await HttpClient.PostAsJsonAsync("api/trainingassignment", asg);
-                        if (!r.IsSuccessStatusCode)
-                        {
-                            var b = r.Content is not null ? await r.Content.ReadAsStringAsync() : string.Empty;
-                            Console.Error.WriteLine($"Failed posting assignment for user {asg.UserId}: {(int)r.StatusCode} {r.ReasonPhrase} - {b}");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.Error.WriteLine($"Exception posting assignment for user {asg.UserId}: {ex.Message}");
-                    }
-                }
-
-                // refresh to reflect whatever succeeded
-                await LoadAssignedProfiles();
-                SelectedUserIds.Clear();
-                if (OnSelectionChanged.HasDelegate) await OnSelectionChanged.InvokeAsync(new List<int>());
-                activeTab = 1;
-                ShowStatus("Assign attempted (individual). Check server logs for any failures.", "alert alert-warning");
-                return;
-            }
-
-            // other failure
-            var body = respArray.Content is not null ? await respArray.Content.ReadAsStringAsync() : string.Empty;
-            ShowStatus($"Bulk assign failed: {(int)respArray.StatusCode} {respArray.ReasonPhrase} - {body}", "alert alert-danger");
-            Console.Error.WriteLine($"Bulk assign failed: {(int)respArray.StatusCode} {respArray.ReasonPhrase} - {body}");
-        }
-        catch (Exception ex)
-        {
-            ShowStatus($"Error assigning users: {ex.Message}", "alert alert-danger");
-            Console.Error.WriteLine(ex);
-        }
-    }
-
-    private async Task UnassignSingle(int userId)
-    {
-        try
-        {
-            var resp = await HttpClient.DeleteAsync($"api/trainingassignment/event/{eventId}/user/{userId}");
-            if (resp.IsSuccessStatusCode)
-            {
-                await LoadAssignedProfiles();
-                ShowStatus("User unassigned.", "alert alert-success");
-            }
-            else
-            {
-                ShowStatus($"Unassign failed: {(int)resp.StatusCode} {resp.ReasonPhrase}", "alert alert-danger");
-            }
-        }
-        catch (Exception ex)
-        {
-            ShowStatus($"Error unassigning user {userId}: {ex.Message}", "alert alert-danger");
-            Console.Error.WriteLine(ex);
-        }
-    }
-
-    private async Task UnassignSelected()
-    {
-        if (!AssignedSelectedIds.Any()) return;
-
-        try
-        {
-            var payload = new { eventId = eventId, userIds = AssignedSelectedIds.ToList() };
-            var resp = await HttpClient.PostAsJsonAsync($"api/trainingassignment/unassign", payload);
-            if (resp.IsSuccessStatusCode)
-            {
-                AssignedSelectedIds.Clear();
-                await LoadAssignedProfiles();
-                ShowStatus("Users unassigned.", "alert alert-success");
-            }
-            else
-            {
-                ShowStatus($"Bulk unassign failed: {(int)resp.StatusCode} {resp.ReasonPhrase}", "alert alert-danger");
-            }
-        }
-        catch (Exception ex)
-        {
-            ShowStatus($"Error unassigning users: {ex.Message}", "alert alert-danger");
-            Console.Error.WriteLine(ex);
-        }
-    }
-
-    private void ShowStatus(string message, string alertClass = "alert alert-info", int autoHideMs = 4000)
-    {
-        statusCts?.Cancel();
-        statusMessage = message;
-        statusAlertClass = alertClass;
-        StateHasChanged();
-
-        if (autoHideMs > 0)
-        {
-            var cts = new System.Threading.CancellationTokenSource();
-            statusCts = cts;
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await Task.Delay(autoHideMs, cts.Token);
-                    statusMessage = null;
-                    await InvokeAsync(StateHasChanged);
-                }
-                catch (TaskCanceledException) { }
-            });
-        }
-    }
 
     private void ClearStatus()
     {
