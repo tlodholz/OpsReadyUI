@@ -1,4 +1,4 @@
-﻿namespace OpsReady.Models
+﻿namespace OpsReadyUI.Models
 {
     using System;
     using System.ComponentModel.DataAnnotations;

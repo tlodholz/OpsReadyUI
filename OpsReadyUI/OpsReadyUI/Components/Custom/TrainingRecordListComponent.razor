@@ -1,0 +1,11 @@
+﻿@using System.Linq
+@using OpsReadyUI.Models
+@inject HttpClient HttpClient
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<h3>TrainingRecordListComponent</h3>
+
+@code {
+    [Parameter] public int EventId { get; set; }
+}

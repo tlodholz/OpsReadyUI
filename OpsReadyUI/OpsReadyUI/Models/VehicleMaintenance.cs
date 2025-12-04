@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
-using static OpsReady.Models.Vehicle;
+using static OpsReadyUI.Models.Vehicle;
 
-namespace OpsReady.Models
+namespace OpsReadyUI.Models
 {
     [Table("OpsReady_VehicleMaintenance")]
     public class VehicleMaintenance
