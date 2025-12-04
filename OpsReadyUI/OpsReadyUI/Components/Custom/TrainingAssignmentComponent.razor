@@ -73,10 +73,9 @@ else
             </div>
         </div>
     }
-}
 
-<div class="mb-3 d-flex gap-2">
-    <input class="form-control w-50" placeholder="Search users by name, email, badge, position..." @bind="searchText" />
+    <div class="mb-3 d-flex gap-2">
+        <input class="form-control w-50" placeholder="Search users by name, email, badge, position..." @bind="searchText" />
 
         <div class="form-check align-items-center">
             <input class="form-check-input" type="checkbox" id="selectAll" checked="@IsAllVisibleSelected" @onchange="ToggleSelectAll" />
@@ -124,9 +123,11 @@ else
             </table>
         </div>
     }
-}
-else if (activeTab == 1)
-{
+
+    <hr />
+
+    <h4>Assigned Users</h4>
+
     <div class="d-flex justify-content-between mb-3">
         <div>
             <button class="btn btn-outline-secondary btn-sm" @onclick="LoadAssignedProfiles">Refresh</button>
@@ -199,6 +200,17 @@ else if (activeTab == 1)
     private TrainingEvent? trainingEvent;
     private bool isEventLoading;
     private string? eventError;
+
+    // assigned lists / selection
+    private List<UserProfile> AssignedProfiles { get; set; } = new();
+    private List<TrainingAssignment> AssignedAssignments { get; set; } = new();
+    private HashSet<int> AssignedSelectedIds { get; set; } = new();
+    private bool isAssignedLoading;
+
+    // status
+    private string? statusMessage;
+    private string statusAlertClass = "alert alert-success";
+    private System.Threading.CancellationTokenSource? statusCts;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -285,13 +297,36 @@ else if (activeTab == 1)
         try
         {
             var jsonOptions = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+            // Try to get profiles (endpoint guaranteed)
             AssignedProfiles = await HttpClient.GetFromJsonAsync<List<UserProfile>>($"api/TrainingAssignment/event/{eventId}/profiles", jsonOptions)
                                ?? new List<UserProfile>();
+
+            // Try to load assignments (if endpoint exists)
+            try
+            {
+                AssignedAssignments = await HttpClient.GetFromJsonAsync<List<TrainingAssignment>>($"api/TrainingAssignment/event/{eventId}", jsonOptions)
+                                      ?? new List<TrainingAssignment>();
+            }
+            catch
+            {
+                // fallback: attempt the lowercase route
+                try
+                {
+                    AssignedAssignments = await HttpClient.GetFromJsonAsync<List<TrainingAssignment>>($"api/trainingassignment/event/{eventId}", jsonOptions)
+                                          ?? new List<TrainingAssignment>();
+                }
+                catch
+                {
+                    AssignedAssignments = new List<TrainingAssignment>();
+                }
+            }
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error loading assigned users from api/TrainingAssignment/event/{eventId}/profiles: {ex.Message}");
             AssignedProfiles = new List<UserProfile>();
+            AssignedAssignments = new List<TrainingAssignment>();
         }
         finally
         {
@@ -322,7 +357,7 @@ else if (activeTab == 1)
 
     private void SelectTab(int index)
     {
-        activeTab = index;
+        // kept for compatibility if tabs are added later
     }
 
     private void ToggleSelectAll(ChangeEventArgs e)
@@ -357,11 +392,165 @@ else if (activeTab == 1)
     // Assign users — robust: try configured endpoint, then fall back to posting individual TrainingAssignment objects
     private async Task ApplySelection()
     {
+        if (SelectedUserIds == null || !SelectedUserIds.Any())
+        {
+            ShowStatus("No users selected.", "alert alert-warning");
+            return;
+        }
+
         // Notify parent component (if set) with selected authentication user ids.
         if (OnSelectionChanged.HasDelegate)
         {
             await OnSelectionChanged.InvokeAsync(SelectedUserIds.ToList());
         }
+
+        // Try batch assign endpoint
+        try
+        {
+            var batchUrl = $"api/TrainingAssignment/event/{eventId}/assign";
+            var resp = await HttpClient.PostAsJsonAsync(batchUrl, SelectedUserIds);
+            if (resp.IsSuccessStatusCode)
+            {
+                ShowStatus("Users assigned (batch).", "alert alert-success");
+                SelectedUserIds.Clear();
+                await LoadAssignedProfiles();
+                return;
+            }
+        }
+        catch { /* ignore and fallback */ }
+
+        // Fallback: create individual TrainingAssignment records
+        var createdAny = false;
+        foreach (var userId in SelectedUserIds.ToList())
+        {
+            var ta = new TrainingAssignment
+            {
+                Id = 0,
+                TrainingEventId = eventId,
+                UserId = userId,
+                AssignedDate = DateTime.UtcNow,
+                AssignedByUserId = 0,
+                CreatedDate = DateTime.UtcNow
+            };
+
+            try
+            {
+                var r = await HttpClient.PostAsJsonAsync("api/trainingassignment", ta);
+                if (r.IsSuccessStatusCode)
+                {
+                    createdAny = true;
+                }
+                else
+                {
+                    var err = await r.Content.ReadAsStringAsync();
+                    Console.Error.WriteLine($"Failed to create assignment for user {userId}: {r.StatusCode} {err}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Exception creating assignment for user {userId}: {ex.Message}");
+            }
+        }
+
+        if (createdAny)
+        {
+            ShowStatus("Assignments created.", "alert alert-success");
+            SelectedUserIds.Clear();
+            await LoadAssignedProfiles();
+        }
+        else
+        {
+            ShowStatus("No assignments were created.", "alert alert-danger");
+        }
+    }
+
+    private async Task UnassignSelected()
+    {
+        if (!AssignedSelectedIds.Any()) return;
+
+        var toRemove = AssignedSelectedIds.ToList();
+        var removedAny = false;
+
+        foreach (var userId in toRemove)
+        {
+            var assignment = AssignedAssignments.FirstOrDefault(a => a.UserId == userId);
+            if (assignment == null) continue;
+
+            try
+            {
+                var resp = await HttpClient.DeleteAsync($"api/trainingassignment/{assignment.Id}");
+                if (resp.IsSuccessStatusCode)
+                {
+                    removedAny = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Error deleting assignment {assignment.Id}: {ex.Message}");
+            }
+        }
+
+        if (removedAny)
+        {
+            ShowStatus("Selected users unassigned.", "alert alert-success");
+        }
+
+        AssignedSelectedIds.Clear();
+        await LoadAssignedProfiles();
+    }
+
+    private async Task UnassignSingle(int userId)
+    {
+        var assignment = AssignedAssignments.FirstOrDefault(a => a.UserId == userId);
+        if (assignment == null)
+        {
+            ShowStatus("Assignment not found.", "alert alert-warning");
+            return;
+        }
+
+        try
+        {
+            var resp = await HttpClient.DeleteAsync($"api/trainingassignment/{assignment.Id}");
+            if (resp.IsSuccessStatusCode)
+            {
+                ShowStatus("User unassigned.", "alert alert-success");
+            }
+            else
+            {
+                ShowStatus($"Unassign failed: {resp.StatusCode}", "alert alert-danger");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"Error: {ex.Message}", "alert alert-danger");
+        }
+
+        await LoadAssignedProfiles();
+    }
+
+    private void ShowStatus(string message, string alertClass = "alert alert-success", int autoHideMs = 4000)
+    {
+        statusCts?.Cancel();
+        statusMessage = message;
+        statusAlertClass = alertClass;
+        StateHasChanged();
+
+        if (autoHideMs > 0)
+        {
+            var cts = new System.Threading.CancellationTokenSource();
+            statusCts = cts;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(autoHideMs, cts.Token);
+                    statusMessage = null;
+                    await InvokeAsync(StateHasChanged);
+                }
+                catch (TaskCanceledException) { }
+            });
+        }
+    }
 
     private void ClearStatus()
     {
