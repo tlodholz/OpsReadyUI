@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace OpsReady.Models
+namespace OpsReadyUI.Models
 {
     [Table("OpsReady_UserProfile")]
     public class UserProfile

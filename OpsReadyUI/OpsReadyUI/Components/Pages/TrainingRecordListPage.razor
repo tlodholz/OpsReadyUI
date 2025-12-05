@@ -1,0 +1,10 @@
+﻿@page "/training/record/{eventId:int}"
+@using OpsReadyUI.Components.Custom
+@inject NavigationManager NavigationManager
+@inject HttpClient Http
+
+<TrainingRecordListComponent EventId ="@eventId"></TrainingRecordListComponent>
+
+@code {
+    [Parameter] public int eventId { get; set; }
+}

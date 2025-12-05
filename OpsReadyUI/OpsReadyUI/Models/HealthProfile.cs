@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
 
-namespace OpsReady.Models
+namespace OpsReadyUI.Models
 {
     [Table("OpsReady_HealthProfile")]
     public class HealthProfile

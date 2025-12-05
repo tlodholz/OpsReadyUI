@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace OpsReady.Models
+namespace OpsReadyUI.Models
 {
     public class TrainingAssignment
     {
