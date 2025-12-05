@@ -1,8 +1,10 @@
 ﻿@using System.Linq
+@using System.Text.Json
 @using OpsReady.Models
 @using System.Net.Http.Json
 @inject HttpClient HttpClient
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JsRuntime
 @rendermode InteractiveServer
 
 @if (eventId <= 0)
@@ -14,7 +16,7 @@ else
 {
     <h3>Assign Users to Training</h3>
 
-    @if (isEventLoading)
+    @if (isEventLoading)    
     {
         <div class="mb-3"><em>Loading event summary...</em></div>
     }
@@ -63,6 +65,46 @@ else
                 </dl>
             </div>
         </div>
+
+        @* Assigned profiles summary (loaded from API) *@
+        @if (assignedProfiles != null)
+        {
+            <div class="mb-3 d-flex align-items-start">
+                <div>
+                    @if (assignedProfiles.Any())
+                    {
+                        <div class="small text-muted">Assigned users (@assignedProfiles.Count):</div>
+                        <div class="mb-2">
+                            @foreach (var ap in assignedProfiles.Take(10))
+                            {
+                                <span class="badge bg-secondary me-1" style="cursor:pointer" title="Click to unassign" @onclick="() => UnassignUser(ap.UserId)">
+                                    @($"{ap.FirstName} {ap.LastName}")
+                                </span>
+                            }
+                            @if (assignedProfiles.Count > 10)
+                            {
+                                <span class="text-muted small">...and @((assignedProfiles.Count) - 10) more</span>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="small text-muted">No users currently assigned to this event.</div>
+                    }
+                </div>
+
+                <div class="ms-auto">
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => showAssignedDebug = !showAssignedDebug">
+                        @(showAssignedDebug ? "Hide debug" : "Show debug")
+                    </button>
+                </div>
+            </div>
+
+            @if (showAssignedDebug)
+            {
+                <pre class="small bg-light p-2 rounded">@JsonSerializer.Serialize(assignedProfiles, new JsonSerializerOptions { WriteIndented = true })</pre>
+            }
+        }
     }
 }
 
@@ -148,6 +190,7 @@ else
     [Parameter] public EventCallback<List<int>> OnSelectionChanged { get; set; }
 
     private List<UserProfile>? profiles;
+    private List<UserProfile>? assignedProfiles;
     private HashSet<int> SelectedUserIds { get; set; } = new();
     private string searchText { get; set; } = string.Empty;
 
@@ -160,6 +203,9 @@ else
     private string? statusMessage;
     private string statusAlertClass = "alert alert-success";
     private System.Threading.CancellationTokenSource? statusCts;
+
+    // debug helper
+    private bool showAssignedDebug;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -188,11 +234,33 @@ else
             {
                 isEventLoading = false;
             }
+
+            // load assigned profiles for this event
+            try
+            {
+                assignedProfiles = await HttpClient.GetFromJsonAsync<List<UserProfile>>($"api/TrainingAssignment/event/{eventId}/profiles")
+                                    ?? new List<UserProfile>();
+            }
+            catch (HttpRequestException ex)
+            {
+                // non-fatal: log and continue; UI will show none assigned
+                Console.Error.WriteLine($"Failed to load assigned profiles: {ex.Message}");
+                assignedProfiles = new List<UserProfile>();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Unexpected error loading assigned profiles: {ex.Message}");
+                assignedProfiles = new List<UserProfile>();
+            }
+
+            // ensure UI updates immediately after assignedProfiles load
+            await InvokeAsync(StateHasChanged);
         }
         else
         {
             trainingEvent = null;
             eventError = null;
+            assignedProfiles = null;
         }
 
         // ensure profiles are loaded (profiles load once if null)
@@ -208,9 +276,23 @@ else
                 profiles = new List<UserProfile>();
             }
 
+            // initialize selection: prefer InitialSelectedUserIds if provided; otherwise use assigned profiles from server
             if (InitialSelectedUserIds is not null)
             {
                 SelectedUserIds = InitialSelectedUserIds.ToHashSet();
+            }
+            else if (assignedProfiles != null)
+            {
+                SelectedUserIds = assignedProfiles.Select(p => p.UserId).ToHashSet();
+            }
+        }
+        else
+        {
+            // if profiles were already loaded but assignedProfiles came in later, ensure selection reflects server-assigned users
+            if (InitialSelectedUserIds is null && assignedProfiles != null)
+            {
+                foreach (var id in assignedProfiles.Select(p => p.UserId))
+                    SelectedUserIds.Add(id);
             }
         }
     }
@@ -290,6 +372,15 @@ else
                 SelectedUserIds.Clear();
                 ShowStatus("Users were successfully added to the database.", "alert alert-success");
                 await InvokeAsync(StateHasChanged);
+
+                // refresh assignedProfiles from server to reflect actual assignments
+                try
+                {
+                    assignedProfiles = await HttpClient.GetFromJsonAsync<List<UserProfile>>($"api/TrainingAssignment/event/{eventId}/profiles")
+                                        ?? new List<UserProfile>();
+                    await InvokeAsync(StateHasChanged);
+                }
+                catch { /* ignore refresh errors */ }
             }
             else
             {
@@ -302,6 +393,56 @@ else
         {
             Console.Error.WriteLine($"Error assigning users: {ex}");
             ShowStatus("Error assigning users. See console for details.", "alert alert-danger");
+        }
+    }
+
+    private async Task UnassignUser(int userId)
+    {
+        if (assignedProfiles == null || !assignedProfiles.Any(p => p.UserId == userId))
+            return;
+
+        var ap = assignedProfiles.First(p => p.UserId == userId);
+        var displayName = $"{ap.FirstName} {ap.LastName}";
+
+        // confirm
+        var confirmed = await JsRuntime.InvokeAsync<bool>("confirm", $"Unassign {displayName} from this event?");
+        if (!confirmed)
+            return;
+
+        try
+        {
+            var resp = await HttpClient.DeleteAsync($"api/TrainingAssignment/user/{userId}/event/{eventId}");
+            if (resp.IsSuccessStatusCode)
+            {
+                // remove locally and update selection
+                assignedProfiles.RemoveAll(p => p.UserId == userId);
+                SelectedUserIds.Remove(userId);
+
+                // refresh assignedProfiles from server to be sure
+                try
+                {
+                    assignedProfiles = await HttpClient.GetFromJsonAsync<List<UserProfile>>($"api/TrainingAssignment/event/{eventId}/profiles")
+                                        ?? new List<UserProfile>();
+                }
+                catch
+                {
+                    // ignore refresh errors, local removal is acceptable
+                }
+
+                ShowStatus($"{displayName} was unassigned.", "alert alert-success");
+                await InvokeAsync(StateHasChanged);
+            }
+            else
+            {
+                var err = await resp.Content.ReadAsStringAsync();
+                Console.Error.WriteLine($"Unassign failed: {(int)resp.StatusCode} {resp.ReasonPhrase} - {err}");
+                ShowStatus($"Unassign failed: {(int)resp.StatusCode} {resp.ReasonPhrase}", "alert alert-danger");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error unassigning user {userId}: {ex}");
+            ShowStatus("Error unassigning user. See console for details.", "alert alert-danger");
         }
     }
 
