@@ -1,0 +1,479 @@
+﻿@using System.Linq
+@using System.Text.Json
+@using OpsReady.Models
+@using System.Net.Http.Json
+@inject HttpClient HttpClient
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JsRuntime
+@rendermode InteractiveServer
+
+@if (eventId <= 0)
+{
+    <h3>Assign Users to Training</h3>
+    <div class="alert alert-secondary">No training event selected.</div>
+}
+else
+{
+    <h3>Assign Users to Training</h3>
+
+    @if (isEventLoading)    
+    {
+        <div class="mb-3"><em>Loading event summary...</em></div>
+    }
+    else if (!string.IsNullOrWhiteSpace(eventError))
+    {
+        <div class="mb-3 alert alert-danger">@eventError</div>
+    }
+    else if (trainingEvent is not null)
+    {
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title mb-1">@trainingEvent.Title</h5>
+                        <div class="text-muted small">@trainingEvent.TrainingCategory @(!string.IsNullOrWhiteSpace(trainingEvent.TrainingSubCategory) ? $" / {trainingEvent.TrainingSubCategory}" : "")</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="small text-muted">Event Id: @trainingEvent.Id</div>
+                        <div class="small text-muted">Provider: @trainingEvent.Provider</div>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(trainingEvent.Description))
+                {
+                    <p class="mt-2 mb-2">@trainingEvent.Description</p>
+                }
+
+                <dl class="row mb-0">
+                    <dt class="col-sm-3">Dates</dt>
+                    <dd class="col-sm-9">@(trainingEvent.StartDate.ToString("yyyy-MM-dd")) — @(trainingEvent.EndDate.ToString("yyyy-MM-dd"))</dd>
+
+                    <dt class="col-sm-3">Enrollment Deadline</dt>
+                    <dd class="col-sm-9">@(trainingEvent.EnrollmentDeadline.ToString("yyyy-MM-dd"))</dd>
+
+                    <dt class="col-sm-3">Location</dt>
+                    <dd class="col-sm-9">@trainingEvent.Location</dd>
+
+                    <dt class="col-sm-3">Instructor</dt>
+                    <dd class="col-sm-9">@trainingEvent.Instructor</dd>
+
+                    <dt class="col-sm-3">Duration</dt>
+                    <dd class="col-sm-9">@trainingEvent.DurationHours hrs</dd>
+
+                    <dt class="col-sm-3">Certification</dt>
+                    <dd class="col-sm-9">@((trainingEvent.CertificationIssued) ? $"Yes — {trainingEvent.CertificationIssuedBy}" : "No")</dd>
+                </dl>
+            </div>
+        </div>
+
+        @* Assigned profiles summary (loaded from API) *@
+        @if (assignedProfiles != null)
+        {
+            <div class="mb-3 d-flex align-items-start">
+                <div>
+                    @if (assignedProfiles.Any())
+                    {
+                        <div class="small text-muted">Assigned users (@assignedProfiles.Count):</div>
+                        <div class="mb-2">
+                            @foreach (var ap in assignedProfiles.Take(10))
+                            {
+                                <span class="badge bg-secondary me-1" style="cursor:pointer" title="Click to unassign" @onclick="() => UnassignUser(ap.UserId)">
+                                    @($"{ap.FirstName} {ap.LastName}")
+                                </span>
+                            }
+                            @if (assignedProfiles.Count > 10)
+                            {
+                                <span class="text-muted small">...and @((assignedProfiles.Count) - 10) more</span>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="small text-muted">No users currently assigned to this event.</div>
+                    }
+                </div>
+
+                <div class="ms-auto">
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => showAssignedDebug = !showAssignedDebug">
+                        @(showAssignedDebug ? "Hide debug" : "Show debug")
+                    </button>
+                </div>
+            </div>
+
+            @if (showAssignedDebug)
+            {
+                <pre class="small bg-light p-2 rounded">@JsonSerializer.Serialize(assignedProfiles, new JsonSerializerOptions { WriteIndented = true })</pre>
+            }
+        }
+    }
+}
+
+@if (!string.IsNullOrWhiteSpace(statusMessage))
+{
+    <div class="@statusAlertClass mb-3" role="alert">
+        <div>@statusMessage</div>
+        <button type="button" class="btn-close float-end" aria-label="Close" @onclick="ClearStatus"></button>
+    </div>
+}
+
+<div class="mb-3 d-flex gap-2">
+    <input class="form-control w-50" placeholder="Search users by name, email, badge, position..." @bind="searchText" />
+
+    <div class="form-check align-items-center">
+        <input class="form-check-input" type="checkbox" id="selectAll" checked="@IsAllVisibleSelected" @onchange="ToggleSelectAll" />
+        <label class="form-check-label ms-1" for="selectAll">Select visible (@VisibleCount)</label>
+    </div>
+
+    <button class="btn btn-primary ms-auto" @onclick="ApplySelection" disabled="@(SelectedUserIds.Count == 0)">Apply selection (@SelectedUserIds.Count)</button>
+</div>
+
+@if (profiles == null)
+{
+    <p><em>Loading users...</em></p>
+}
+else if (!FilteredProfiles.Any())
+{
+    <p>No users match your search.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-sm table-striped">
+            <thead>
+                <tr>
+                    <th style="width:48px"></th>
+                    <th>ProfileId</th>
+                    <th>UserId</th>
+                    <th>First</th>
+                    <th>Last</th>
+                    <th>Email</th>
+                    <th>Badge</th>
+                    <th>Position</th>
+                    <th>Department</th>
+                    <th>Location</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var u in FilteredProfiles)
+                {
+                    <tr>
+                        <td>
+                            <input class="form-check-input" type="checkbox"
+                                   checked="@SelectedUserIds.Contains(u.UserId)"
+                                   @onchange="(ChangeEventArgs e) => ToggleSelection(u.UserId, e)" />
+                        </td>
+                        <td>@u.Id</td>
+                        <td>@u.UserId</td>
+                        <td>@u.FirstName</td>
+                        <td>@u.LastName</td>
+                        <td>@u.EmailAddress</td>
+                        <td>@u.BadgeNumber</td>
+                        <td>@u.Position</td>
+                        <td>@u.Department</td>
+                        <td>@u.Location</td>
+                        <td>@u.Status</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [Parameter] public int eventId { get; set; }
+
+    // Optional: receive initial selection of user ids (authentication ids)
+    [Parameter] public List<int>? InitialSelectedUserIds { get; set; }
+
+    // Parent can react to selection of user ids
+    [Parameter] public EventCallback<List<int>> OnSelectionChanged { get; set; }
+
+    private List<UserProfile>? profiles;
+    private List<UserProfile>? assignedProfiles;
+    private HashSet<int> SelectedUserIds { get; set; } = new();
+    private string searchText { get; set; } = string.Empty;
+
+    // event summary
+    private TrainingEvent? trainingEvent;
+    private bool isEventLoading;
+    private string? eventError;
+
+    // status message (top-only)
+    private string? statusMessage;
+    private string statusAlertClass = "alert alert-success";
+    private System.Threading.CancellationTokenSource? statusCts;
+
+    // debug helper
+    private bool showAssignedDebug;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+
+        // load event summary when eventId changes
+        if (eventId > 0)
+        {
+            isEventLoading = true;
+            eventError = null;
+            trainingEvent = null;
+
+            try
+            {
+                trainingEvent = await HttpClient.GetFromJsonAsync<TrainingEvent>($"api/trainingevent/{eventId}");
+            }
+            catch (HttpRequestException ex)
+            {
+                eventError = $"Failed to load event: {ex.Message}";
+            }
+            catch (Exception ex)
+            {
+                eventError = $"Unexpected error loading event: {ex.Message}";
+            }
+            finally
+            {
+                isEventLoading = false;
+            }
+
+            // load assigned profiles for this event
+            try
+            {
+                assignedProfiles = await HttpClient.GetFromJsonAsync<List<UserProfile>>($"api/TrainingAssignment/event/{eventId}/profiles")
+                                    ?? new List<UserProfile>();
+            }
+            catch (HttpRequestException ex)
+            {
+                // non-fatal: log and continue; UI will show none assigned
+                Console.Error.WriteLine($"Failed to load assigned profiles: {ex.Message}");
+                assignedProfiles = new List<UserProfile>();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Unexpected error loading assigned profiles: {ex.Message}");
+                assignedProfiles = new List<UserProfile>();
+            }
+
+            // ensure UI updates immediately after assignedProfiles load
+            await InvokeAsync(StateHasChanged);
+        }
+        else
+        {
+            trainingEvent = null;
+            eventError = null;
+            assignedProfiles = null;
+        }
+
+        // ensure profiles are loaded (profiles load once if null)
+        if (profiles == null)
+        {
+            try
+            {
+                profiles = await HttpClient.GetFromJsonAsync<List<UserProfile>>("api/userprofile") ?? new List<UserProfile>();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Error loading user profiles: {ex.Message}");
+                profiles = new List<UserProfile>();
+            }
+
+            // initialize selection: prefer InitialSelectedUserIds if provided; otherwise use assigned profiles from server
+            if (InitialSelectedUserIds is not null)
+            {
+                SelectedUserIds = InitialSelectedUserIds.ToHashSet();
+            }
+            else if (assignedProfiles != null)
+            {
+                SelectedUserIds = assignedProfiles.Select(p => p.UserId).ToHashSet();
+            }
+        }
+        else
+        {
+            // if profiles were already loaded but assignedProfiles came in later, ensure selection reflects server-assigned users
+            if (InitialSelectedUserIds is null && assignedProfiles != null)
+            {
+                foreach (var id in assignedProfiles.Select(p => p.UserId))
+                    SelectedUserIds.Add(id);
+            }
+        }
+    }
+
+    private IEnumerable<UserProfile> FilteredProfiles => (profiles ?? Enumerable.Empty<UserProfile>())
+        .Where(u =>
+            string.IsNullOrWhiteSpace(searchText) ||
+            (u.FirstName ?? string.Empty).Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+            (u.LastName ?? string.Empty).Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+            (u.EmailAddress ?? string.Empty).Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+            (u.BadgeNumber ?? string.Empty).Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+            (u.Position ?? string.Empty).Contains(searchText, StringComparison.OrdinalIgnoreCase)
+        )
+        .OrderBy(u => u.LastName)
+        .ThenBy(u => u.FirstName);
+
+    private int VisibleCount => FilteredProfiles.Count();
+
+    private bool IsAllVisibleSelected => VisibleCount > 0 && FilteredProfiles.All(u => SelectedUserIds.Contains(u.UserId));
+
+    private void ToggleSelectAll(ChangeEventArgs e)
+    {
+        var check = e.Value is bool b && b;
+        if (check)
+        {
+            foreach (var u in FilteredProfiles)
+                SelectedUserIds.Add(u.UserId);
+        }
+        else
+        {
+            foreach (var u in FilteredProfiles)
+                SelectedUserIds.Remove(u.UserId);
+        }
+    }
+
+    private void ToggleSelection(int userId, ChangeEventArgs e)
+    {
+        var isChecked = e.Value is bool b && b;
+        if (isChecked) SelectedUserIds.Add(userId);
+        else SelectedUserIds.Remove(userId);
+    }
+
+    private async Task ApplySelection()
+    {
+        // Notify parent component (if set) with selected authentication user ids.
+        if (OnSelectionChanged.HasDelegate)
+        {
+            await OnSelectionChanged.InvokeAsync(SelectedUserIds.ToList());
+        }
+
+        if (eventId <= 0)
+        {
+            Console.Error.WriteLine("Cannot apply selection - invalid event id.");
+            return;
+        }
+
+        // Build list of TrainingAssignment objects to post to API
+        var now = DateTime.UtcNow;
+        var assignments = SelectedUserIds.Select(uid => new TrainingAssignment
+        {
+            // Id left as default (server should set)
+            TrainingEventId = eventId,
+            UserId = uid,
+            AssignedDate = now,
+            AssignedByUserId = 0, // update if you have the current user's id
+            CreatedDate = now
+        }).ToList();
+
+        try
+        {
+            // Post to server endpoint. Adjust route if your API expects a different path.
+            var resp = await HttpClient.PostAsJsonAsync($"api/trainingassignment", assignments);
+
+            if (resp.IsSuccessStatusCode)
+            {
+                // clear selection after successful assign
+                SelectedUserIds.Clear();
+                ShowStatus("Users were successfully added to the database.", "alert alert-success");
+                await InvokeAsync(StateHasChanged);
+
+                // refresh assignedProfiles from server to reflect actual assignments
+                try
+                {
+                    assignedProfiles = await HttpClient.GetFromJsonAsync<List<UserProfile>>($"api/TrainingAssignment/event/{eventId}/profiles")
+                                        ?? new List<UserProfile>();
+                    await InvokeAsync(StateHasChanged);
+                }
+                catch { /* ignore refresh errors */ }
+            }
+            else
+            {
+                var err = await resp.Content.ReadAsStringAsync();
+                Console.Error.WriteLine($"Assign failed: {(int)resp.StatusCode} {resp.ReasonPhrase} - {err}");
+                ShowStatus($"Assign failed: {(int)resp.StatusCode} {resp.ReasonPhrase}", "alert alert-danger");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error assigning users: {ex}");
+            ShowStatus("Error assigning users. See console for details.", "alert alert-danger");
+        }
+    }
+
+    private async Task UnassignUser(int userId)
+    {
+        if (assignedProfiles == null || !assignedProfiles.Any(p => p.UserId == userId))
+            return;
+
+        var ap = assignedProfiles.First(p => p.UserId == userId);
+        var displayName = $"{ap.FirstName} {ap.LastName}";
+
+        // confirm
+        var confirmed = await JsRuntime.InvokeAsync<bool>("confirm", $"Unassign {displayName} from this event?");
+        if (!confirmed)
+            return;
+
+        try
+        {
+            var resp = await HttpClient.DeleteAsync($"api/TrainingAssignment/user/{userId}/event/{eventId}");
+            if (resp.IsSuccessStatusCode)
+            {
+                // remove locally and update selection
+                assignedProfiles.RemoveAll(p => p.UserId == userId);
+                SelectedUserIds.Remove(userId);
+
+                // refresh assignedProfiles from server to be sure
+                try
+                {
+                    assignedProfiles = await HttpClient.GetFromJsonAsync<List<UserProfile>>($"api/TrainingAssignment/event/{eventId}/profiles")
+                                        ?? new List<UserProfile>();
+                }
+                catch
+                {
+                    // ignore refresh errors, local removal is acceptable
+                }
+
+                ShowStatus($"{displayName} was unassigned.", "alert alert-success");
+                await InvokeAsync(StateHasChanged);
+            }
+            else
+            {
+                var err = await resp.Content.ReadAsStringAsync();
+                Console.Error.WriteLine($"Unassign failed: {(int)resp.StatusCode} {resp.ReasonPhrase} - {err}");
+                ShowStatus($"Unassign failed: {(int)resp.StatusCode} {resp.ReasonPhrase}", "alert alert-danger");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error unassigning user {userId}: {ex}");
+            ShowStatus("Error unassigning user. See console for details.", "alert alert-danger");
+        }
+    }
+
+    private void ShowStatus(string message, string alertClass = "alert alert-success", int autoHideMs = 4000)
+    {
+        statusCts?.Cancel();
+        statusMessage = message;
+        statusAlertClass = alertClass;
+        StateHasChanged();
+
+        if (autoHideMs > 0)
+        {
+            var cts = new System.Threading.CancellationTokenSource();
+            statusCts = cts;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(autoHideMs, cts.Token);
+                    statusMessage = null;
+                    await InvokeAsync(StateHasChanged);
+                }
+                catch (TaskCanceledException) { }
+            });
+        }
+    }
+
+    private void ClearStatus()
+    {
+        statusCts?.Cancel();
+        statusMessage = null;
+        StateHasChanged();
+    }
+}
