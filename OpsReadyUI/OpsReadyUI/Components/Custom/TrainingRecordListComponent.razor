@@ -1,11 +1,485 @@
 ﻿@using System.Linq
+@using System.Net.Http.Json
 @using OpsReadyUI.Models
+@using OpsReadyUI.Models.Dto
 @inject HttpClient HttpClient
-@inject NavigationManager NavigationManager
 @rendermode InteractiveServer
 
-<h3>TrainingRecordListComponent</h3>
+<h3 class="mb-3">Training Records for Event @EventId</h3>
+
+@if (!string.IsNullOrWhiteSpace(statusMessage))
+{
+    <div class="@statusAlertClass mb-3" role="alert">
+        <div>@statusMessage</div>
+        <button type="button" class="btn-close float-end" aria-label="Close" @onclick="ClearStatus"></button>
+    </div>
+}
+
+<div class="mb-3 d-flex gap-2">
+    <button class="btn btn-primary" @onclick="AddNewRecord">New record</button>
+    <div class="text-muted small align-self-center">Create a record and Save to persist.</div>
+</div>
+
+@if (isLoading)
+{
+    <p><em>Loading records...</em></p>
+}
+else if (records == null || !records.Any())
+{
+    <p>No training records found for this event.</p>
+}
+else
+{
+    <div class="d-flex flex-column gap-3">
+        @for (int i = 0; i < records.Count; i++)
+        {
+            var r = records[i];
+            var isOpen = expanded.Count > i && expanded[i];
+
+            <details class="card" open="@(isOpen ? "open" : null)">
+                <summary class="card-header d-flex justify-content-between align-items-center" style="cursor:pointer">
+                    <div class="d-flex flex-column text-start">
+                        <div class="fw-semibold">@($"{r.User?.FirstName ?? string.Empty} {r.User?.LastName ?? string.Empty}".Trim())</div>
+                        <div class="small text-muted">@($"Badge: {r.User?.BadgeNumber ?? "-"}")</div>
+                    </div>
+
+                    <div class="ms-3 text-end small text-muted">
+                        <div>Record: @(r.Id == 0 ? "(new)" : r.Id.ToString())</div>
+                        <div>AssignId: @r.TrainingAssignmentId</div>
+                    </div>
+                </summary>
+
+                <div class="card-body">
+                    <EditForm Model="r" OnValidSubmit="@(() => SaveRecord(r))">
+                        <DataAnnotationsValidator />
+
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label small">Assigned By</label>
+                                <InputText class="form-control form-control-sm" @bind-Value="r.AssignedBy" />
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small">Attendance</label>
+                                <InputText class="form-control form-control-sm" @bind-Value="r.Attendance" />
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small">Status</label>
+                                <InputText class="form-control form-control-sm" @bind-Value="r.Status" />
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label small">Training Outcome</label>
+                                <InputTextArea class="form-control form-control-sm" rows="2" @bind-Value="r.TrainingOutcome" />
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small">Score</label>
+                                <InputText class="form-control form-control-sm" @bind-Value="r.Score" />
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small">Certification Number</label>
+                                <InputText class="form-control form-control-sm" @bind-Value="r.CertificationNumber" />
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small">Hours Completed</label>
+                                <InputNumber class="form-control form-control-sm" @bind-Value="r.HoursCompleted" />
+                            </div>
+
+                            <div class="col-md-3 d-flex align-items-center">
+                                <div class="form-check">
+                                    <InputCheckbox class="form-check-input" @bind-Value="r.Completed" />
+                                    <label class="form-check-label ms-2">Completed</label>
+                                </div>
+                            </div>
+
+                            <div class="col-md-3 d-flex align-items-center">
+                                <div class="form-check">
+                                    <InputCheckbox class="form-check-input" @bind-Value="r.FollowUpRequired" />
+                                    <label class="form-check-label ms-2">Follow-up required</label>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label small">Evaluator</label>
+                                <InputText class="form-control form-control-sm" @bind-Value="r.Evaluator" />
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label small">Evaluation Comments</label>
+                                <InputTextArea class="form-control form-control-sm" rows="2" @bind-Value="r.EvaluationComments" />
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label small">Notes</label>
+                                <InputTextArea class="form-control form-control-sm" rows="2" @bind-Value="r.Notes" />
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small">Strengths</label>
+                                <InputTextArea class="form-control form-control-sm" rows="1" @bind-Value="r.Strengths" />
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small">Areas For Improvement</label>
+                                <InputTextArea class="form-control form-control-sm" rows="1" @bind-Value="r.AreasForImprovement" />
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small">Proficiency Level</label>
+                                <InputText class="form-control form-control-sm" @bind-Value="r.ProficiencyLevel" />
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small">Skill Level Achieved</label>
+                                <InputText class="form-control form-control-sm" @bind-Value="r.SkillLevelAchieved" />
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small">Evaluation Type</label>
+                                <InputText class="form-control form-control-sm" @bind-Value="r.EvaluationType" />
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small">Official Comments</label>
+                                <InputText class="form-control form-control-sm" @bind-Value="r.OfficialComments" />
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small">Evaluator Id</label>
+                                <InputNumber class="form-control form-control-sm" @bind-Value="r.EvaluatorId" />
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small">Expiration Date</label>
+                                <InputDate TValue="DateOnly" class="form-control form-control-sm" @bind-Value="r.ExpirationDate" />
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small">Evaluation Date</label>
+                                <InputDate class="form-control form-control-sm" @bind-Value="r.EvaluationDate" />
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small">Follow Up Date</label>
+                                <InputDate class="form-control form-control-sm" @bind-Value="r.FollowUpDate" />
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small">Enrollment Date</label>
+                                <InputDate class="form-control form-control-sm" @bind-Value="r.EnrollmentDate" />
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small">Certification Issued Date</label>
+                                <InputDate class="form-control form-control-sm" @bind-Value="r.CertificationIssuedDate" />
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small">Certification Expiry Date</label>
+                                <InputDate class="form-control form-control-sm" @bind-Value="r.CertificationExpiryDate" />
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small">Completion Date</label>
+                                <InputDate class="form-control form-control-sm" @bind-Value="r.CompletionDate" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label small">User Email</label>
+                                <InputText class="form-control form-control-sm" @bind-Value="r.User.EmailAddress" Disabled="true" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label small">UserId</label>
+                                <InputNumber class="form-control form-control-sm" @bind-Value="r.User.UserId" />
+                            </div>
+                        </div>
+
+                        <div class="mt-3 d-flex justify-content-end gap-2">
+                            <button type="submit" class="btn btn-success btn-sm">Save</button>
+                            @if (r.Id != 0)
+                            {
+                                <button type="button" class="btn btn-danger btn-sm" @onclick="() => DeleteRecord(r.Id)">Delete</button>
+                            }
+                            else
+                            {
+                                <button type="button" class="btn btn-secondary btn-sm" @onclick="() => CancelNew(r)">Cancel</button>
+                            }
+                        </div>
+                    </EditForm>
+                </div>
+            </details>
+        }
+    </div>
+}
 
 @code {
     [Parameter] public int EventId { get; set; }
+
+    private List<TrainingRecordWithUsersDto>? records;
+    private List<bool> expanded = new();
+    private bool isLoading;
+    private string? statusMessage;
+    private string statusAlertClass = "alert alert-success";
+    private System.Threading.CancellationTokenSource? statusCts;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+        await LoadRecords();
+    }
+
+    private async Task LoadRecords()
+    {
+        records = null;
+        expanded.Clear();
+
+        if (EventId <= 0)
+        {
+            records = new List<TrainingRecordWithUsersDto>();
+            return;
+        }
+
+        isLoading = true;
+        try
+        {
+            records = await HttpClient.GetFromJsonAsync<List<TrainingRecordWithUsersDto>>($"api/TrainingRecord/event/{EventId}") ?? new List<TrainingRecordWithUsersDto>();
+            // initialize expansion state (all collapsed)
+            expanded = Enumerable.Repeat(false, records.Count).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Failed to load training records: {ex.Message}");
+            records = new List<TrainingRecordWithUsersDto>();
+            ShowStatus("Failed to load training records.", "alert alert-danger", 5000);
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void AddNewRecord()
+    {
+        if (records == null) records = new List<TrainingRecordWithUsersDto>();
+        if (expanded == null) expanded = new List<bool>();
+
+        var nr = new TrainingRecordWithUsersDto
+        {
+            Id = 0,
+            TrainingAssignmentId = 0,
+            User = new TrainingRecordWithUsersDto.UserProfileDto { FirstName = string.Empty, LastName = string.Empty },
+            AssignedBy = string.Empty,
+            Attendance = string.Empty,
+            Status = string.Empty,
+            TrainingOutcome = string.Empty,
+            Score = string.Empty,
+            CertificationNumber = string.Empty,
+            SkillLevelAchieved = string.Empty,
+            ProficiencyLevel = string.Empty,
+            Notes = string.Empty,
+            HoursCompleted = 0,
+            Completed = false,
+            Strengths = string.Empty,
+            AreasForImprovement = string.Empty,
+            FollowUpRequired = false,
+            EvaluatorId = 0,
+            Evaluator = string.Empty,
+            EvaluationComments = string.Empty,
+            EvaluationType = string.Empty,
+            OfficialComments = string.Empty,
+            EnrollmentDate = DateTime.UtcNow,
+            EvaluationDate = DateTime.UtcNow,
+            FollowUpDate = DateTime.UtcNow,
+            ExpirationDate = DateOnly.FromDateTime(DateTime.UtcNow),
+            CertificationIssuedDate = DateTime.UtcNow,
+            CertificationExpiryDate = DateTime.UtcNow,
+            CompletionDate = DateTime.UtcNow,
+            RecordCreatedBy = "system",
+            RecordCreatedDate = DateTime.UtcNow,
+            RecordUpdatedBy = "system",
+            RecordUpdatedDate = DateTime.UtcNow
+        };
+
+        records.Insert(0, nr);
+        expanded.Insert(0, true); // open the new item for convenience
+        StateHasChanged();
+    }
+
+    private void CancelNew(TrainingRecordWithUsersDto r)
+    {
+        if (r.Id == 0 && records != null)
+        {
+            var idx = records.IndexOf(r);
+            if (idx >= 0)
+            {
+                records.RemoveAt(idx);
+                if (idx < expanded.Count) expanded.RemoveAt(idx);
+            }
+            StateHasChanged();
+        }
+    }
+
+    private TrainingRecord ToTrainingRecordPayload(TrainingRecordWithUsersDto dto)
+    {
+        // Map all relevant fields from DTO to TrainingRecord model
+        return new TrainingRecord
+        {
+            Id = dto.Id,
+            TrainingAssignmentId = dto.TrainingAssignmentId,
+            AssignedBy = dto.AssignedBy,
+            Attendance = dto.Attendance,
+            Status = dto.Status,
+            TrainingOutcome = dto.TrainingOutcome,
+            Score = dto.Score,
+            CertificationNumber = dto.CertificationNumber,
+            SkillLevelAchieved = dto.SkillLevelAchieved,
+            ProficiencyLevel = dto.ProficiencyLevel,
+            Notes = dto.Notes,
+            HoursCompleted = dto.HoursCompleted,
+            Completed = dto.Completed,
+            Strengths = dto.Strengths,
+            AreasForImprovement = dto.AreasForImprovement,
+            FollowUpRequired = dto.FollowUpRequired,
+            EvaluatorId = dto.EvaluatorId,
+            Evaluator = dto.Evaluator,
+            EvaluationComments = dto.EvaluationComments,
+            EvaluationType = dto.EvaluationType,
+            OfficialComments = dto.OfficialComments,
+            EnrollmentDate = dto.EnrollmentDate,
+            EvaluationDate = dto.EvaluationDate,
+            FollowUpDate = dto.FollowUpDate,
+            ExpirationDate = dto.ExpirationDate,
+            CertificationIssuedDate = dto.CertificationIssuedDate,
+            CertificationExpiryDate = dto.CertificationExpiryDate,
+            CompletionDate = dto.CompletionDate,
+            RecordCreatedBy = dto.RecordCreatedBy,
+            RecordCreatedDate = dto.RecordCreatedDate == default ? DateTime.UtcNow : dto.RecordCreatedDate,
+            RecordUpdatedBy = dto.RecordUpdatedBy,
+            RecordUpdatedDate = DateTime.UtcNow
+        };
+    }
+
+    private async Task SaveRecord(TrainingRecordWithUsersDto r)
+    {
+        if (r == null) return;
+
+        try
+        {
+            if (r.Id == 0)
+            {
+                var payload = ToTrainingRecordPayload(r);
+                var postResp = await HttpClient.PostAsJsonAsync("api/trainingrecord", payload);
+                if (postResp.IsSuccessStatusCode)
+                {
+                    await LoadRecords();
+                    ShowStatus("Training record created.", "alert alert-success");
+                }
+                else
+                {
+                    var err = await postResp.Content.ReadAsStringAsync();
+                    ShowStatus($"Create failed: {(int)postResp.StatusCode} {postResp.ReasonPhrase}", "alert alert-danger");
+                    Console.Error.WriteLine(err);
+                }
+            }
+            else
+            {
+                var payload = ToTrainingRecordPayload(r);
+                var putResp = await HttpClient.PutAsJsonAsync("api/trainingrecord", payload);
+                if (putResp.IsSuccessStatusCode)
+                {
+                    await LoadRecords();
+                    ShowStatus("Training record updated.", "alert alert-success");
+                }
+                else
+                {
+                    var err = await putResp.Content.ReadAsStringAsync();
+                    ShowStatus($"Update failed: {(int)putResp.StatusCode} {putResp.ReasonPhrase}", "alert alert-danger");
+                    Console.Error.WriteLine(err);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error saving record: {ex}");
+            ShowStatus("Error saving record. See console for details.", "alert alert-danger");
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeleteRecord(int id)
+    {
+        if (id == 0)
+        {
+            var item = records?.FirstOrDefault(r => r.Id == 0);
+            if (item != null)
+            {
+                var idx = records.IndexOf(item);
+                records.RemoveAt(idx);
+                if (idx < expanded.Count) expanded.RemoveAt(idx);
+                StateHasChanged();
+            }
+            return;
+        }
+
+        try
+        {
+            var resp = await HttpClient.DeleteAsync($"api/trainingrecord/{id}");
+            if (resp.IsSuccessStatusCode)
+            {
+                await LoadRecords();
+                ShowStatus("Training record deleted.", "alert alert-success");
+            }
+            else
+            {
+                var err = await resp.Content.ReadAsStringAsync();
+                Console.Error.WriteLine($"Delete failed: {err}");
+                ShowStatus($"Delete failed: {(int)resp.StatusCode} {resp.ReasonPhrase}", "alert alert-danger");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error deleting record: {ex}");
+            ShowStatus("Error deleting record. See console for details.", "alert alert-danger");
+        }
+    }
+
+    private void ShowStatus(string message, string alertClass = "alert alert-success", int autoHideMs = 4000)
+    {
+        statusCts?.Cancel();
+        statusMessage = message;
+        statusAlertClass = alertClass;
+        StateHasChanged();
+
+        if (autoHideMs > 0)
+        {
+            var cts = new System.Threading.CancellationTokenSource();
+            statusCts = cts;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(autoHideMs, cts.Token);
+                    statusMessage = null;
+                    await InvokeAsync(StateHasChanged);
+                }
+                catch (TaskCanceledException) { }
+            });
+        }
+    }
+
+    private void ClearStatus()
+    {
+        statusCts?.Cancel();
+        statusMessage = null;
+        StateHasChanged();
+    }
 }

@@ -1,4 +1,4 @@
-﻿@using System.Linq
+﻿ @using System.Linq
 @using OpsReadyUI.Models
 @inject HttpClient HttpClient
 @inject NavigationManager NavigationManager
@@ -102,8 +102,9 @@ else
                             <div class="btn-group" role="group">
                                 <!-- Link to TrainingEventPage, passing the event id in the route -->
                                 <a class="btn btn-primary btn-sm" href="@($"/training/event/{ev.Id}")">View</a>
-                                <!-- Assign button placeholder (link/action can be updated later) -->
+                                <!-- Assign page -->
                                 <a class="btn btn-secondary btn-sm" href="@($"/training/assign/{ev.Id}")">Assign</a>
+                                <a class="btn btn-info btn-sm" href="@($"/training/record/{ev.Id}")">Records</a>
                             </div>
                         </td>
                     </tr>
@@ -234,12 +235,5 @@ else
     private void NextPage()
     {
         if (CurrentPage < TotalPages) CurrentPage++;
-    }
-
-    // Placeholder action for the new Assign button. Update the navigation or handler when ready.
-    private void AssignEvent(int id)
-    {
-        // default placeholder route — you can change this to the final link later
-        NavigationManager.NavigateTo($"/training/assign/{id}");
     }
 }
